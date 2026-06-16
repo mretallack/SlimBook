@@ -14,6 +14,25 @@
         el.setAttribute('data-filtered', type);
     }
 
+    // Hide and also collapse any parent with inline height (for Reels/Stories gaps)
+    function hideCollapse(el, type) {
+        if (!el || el.getAttribute('data-filtered')) return;
+        hide(el, type);
+        if (highlightMode) return;
+        // Walk up parents and zero any inline height styles
+        var p = el.parentElement;
+        for (var i = 0; i < 5; i++) {
+            if (!p || p === document.body) break;
+            var s = p.getAttribute('style') || '';
+            if (s.indexOf('height') !== -1) {
+                p.style.setProperty('height', '0px', 'important');
+                p.style.setProperty('min-height', '0', 'important');
+                p.style.setProperty('overflow', 'hidden', 'important');
+            }
+            p = p.parentElement;
+        }
+    }
+
     // Walk up to find a sizeable parent container
     function findContainer(el, minH, maxH) {
         var parent = el;
@@ -58,37 +77,36 @@
 
             // STORIES
             if (trimmed === 'Create story') {
-                // Walk up to find the stories section, then hide it and any parent with fixed height
                 var p = el;
+                var found = false;
                 for (var k = 0; k < 15; k++) {
                     if (!p.parentElement) break;
                     p = p.parentElement;
                     var pStyle = p.getAttribute('style') || '';
-                    // Find a parent that has explicit height set (WebLite uses inline styles)
                     if (pStyle.indexOf('height') !== -1 && p.getBoundingClientRect().height > 100 &&
                         p.getBoundingClientRect().height < 500) {
+                        found = true;
                         break;
                     }
                 }
-                hide(p, 'stories');
+                if (found) hideCollapse(p, 'stories');
                 continue;
             }
 
             // REELS
             if ((trimmed === 'Reels' || trimmed.indexOf('Reels') !== -1) && trimmed.length < 30) {
-                // Walk up to find the section containing both header and video
                 var p = el;
+                var found = false;
                 for (var k = 0; k < 25; k++) {
                     if (!p.parentElement) break;
                     p = p.parentElement;
-                    // Stop when we find a container that has the reels header + video content
-                    // and is between viewport height and 2x viewport
                     var ph = p.getBoundingClientRect().height;
                     if (ph > 400 && ph < window.innerHeight * 2 && p.children.length >= 2) {
+                        found = true;
                         break;
                     }
                 }
-                hide(p, 'reels');
+                if (found) hideCollapse(p, 'reels');
                 continue;
             }
 

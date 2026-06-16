@@ -68,7 +68,12 @@ class MainActivity : AppCompatActivity() {
                 return if (isFacebookUrl(url)) {
                     false
                 } else {
-                    startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                    } catch (_: Exception) {
+                        // No app to handle (e.g. fb-messenger://), load in WebView
+                        view.loadUrl(url.replace("fb-messenger://", "https://web.facebook.com/messages/"))
+                    }
                     true
                 }
             }
