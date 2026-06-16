@@ -9,11 +9,21 @@
             el.style.outline = '3px solid red';
             el.style.opacity = '0.4';
         } else {
-            el.style.display = 'none';
-            el.style.height = '0';
-            el.style.overflow = 'hidden';
-            el.style.margin = '0';
-            el.style.padding = '0';
+            el.style.setProperty('display', 'none', 'important');
+            el.style.setProperty('height', '0', 'important');
+            el.style.setProperty('max-height', '0', 'important');
+            el.style.setProperty('overflow', 'hidden', 'important');
+            el.style.setProperty('margin', '0', 'important');
+            el.style.setProperty('padding', '0', 'important');
+            // Also collapse parents that have explicit height styles
+            var p = el.parentElement;
+            for (var i = 0; i < 5; i++) {
+                if (!p) break;
+                if (p.style.height && parseInt(p.style.height) > 0) {
+                    p.style.setProperty('height', 'auto', 'important');
+                }
+                p = p.parentElement;
+            }
         }
         el.setAttribute('data-filtered', type);
     }
