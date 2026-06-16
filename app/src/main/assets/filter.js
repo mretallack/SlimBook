@@ -35,17 +35,25 @@
         // Find timestamp text: look for small spans near the top of the post
         var spans = container.querySelectorAll('span');
         var timeText = '';
-        for (var i = 0; i < spans.length && i < 50; i++) {
+        for (var i = 0; i < spans.length && i < 15; i++) {
             var st = spans[i].textContent || '';
-            // Timestamp patterns embedded with icon chars
-            if (st.length > 1 && st.length < 50 &&
+            // Timestamp patterns: short text with relative time or date
+            // Must be short (real timestamps are <20 chars) to avoid matching post content
+            if (st.length > 1 && st.length < 20 &&
                 (st.match(/\d+[hdmw]/) || st.indexOf('Yesterday') !== -1 ||
-                 st.match(/\d+\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i))) {
+                 st.match(/^\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i))) {
                 timeText = st;
                 break;
             }
         }
         if (!timeText) {
+            // Log first few spans to understand the structure
+            var debugSpans = [];
+            for (var di = 0; di < spans.length && di < 10; di++) {
+                var ds = spans[di].textContent || '';
+                if (ds.length > 1 && ds.length < 50) debugSpans.push(ds.substring(0, 30));
+            }
+            console.log('SLIMBOOK:NO_TIME:' + JSON.stringify(debugSpans));
             return -1;
         }
 
@@ -246,8 +254,42 @@
                         hide(postContainer, 'blocked');
                     } else if (maxAgeHours > 0) {
                         var ageH = getPostAgeHours(postContainer);
+                        console.log('SLIMBOOK:AGE:' + authorName + '=' + Math.round(ageH) + 'h max=' + maxAgeHours);
                         if (ageH > 0 && ageH > maxAgeHours) {
                             hide(postContainer, 'old');
+                        }
+                    }
+                }
+            }
+        }
+
+        // STANDALONE AGE FILTER: scan all visible posts that weren't age-checked yet
+        if (typeof Android !== 'undefined' && Android.getMaxAgeHours) {
+            var maxAge = Android.getMaxAgeHours();
+            if (maxAge > 0) {
+                var allChecked = document.querySelectorAll('[data-author-checked]');
+                // Already handled above. Now find large containers NOT yet checked.
+                var allSpans = document.querySelectorAll('span');
+                var checkedContainers = [];
+                for (var ci = 0; ci < allChecked.length; ci++) checkedContainers.push(allChecked[ci]);
+
+                // Look for unchecked posts by finding timestamp spans not in checked containers
+                for (var ti = 0; ti < allSpans.length && ti < 200; ti++) {
+                    var sp = allSpans[ti];
+                    if (sp.closest('[data-filtered]')) continue;
+                    if (sp.closest('[data-author-checked]')) continue;
+                    if (sp.closest('[data-age-checked]')) continue;
+                    var spText = sp.textContent || '';
+                    if (spText.length < 2 || spText.length > 20) continue;
+                    if (spText.match(/\d+[hdw]/) && !spText.match(/\d+[hdw].*\d+[hdw]/)) {
+                        // Found a timestamp in an unchecked post
+                        var postC = findContainer(sp, 200, 2000);
+                        if (postC && !postC.getAttribute('data-age-checked') && !postC.getAttribute('data-filtered')) {
+                            postC.setAttribute('data-age-checked', '1');
+                            var age = getPostAgeHours(postC);
+                            if (age > 0 && age > maxAge) {
+                                hide(postC, 'old');
+                            }
                         }
                     }
                 }
