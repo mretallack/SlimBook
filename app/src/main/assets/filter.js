@@ -58,7 +58,7 @@
             }
 
             // REELS
-            if (trimmed === 'Reels' || trimmed === 'Reels and short videos') {
+            if ((trimmed === 'Reels' || trimmed.indexOf('Reels') !== -1) && trimmed.length < 30) {
                 var container = findContainer(el, 200, 1500);
                 if (container) hide(container, 'reels');
                 continue;
