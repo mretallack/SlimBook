@@ -59,8 +59,16 @@
 
             // REELS
             if ((trimmed === 'Reels' || trimmed.indexOf('Reels') !== -1) && trimmed.length < 30) {
-                var container = findContainer(el, 200, 1500);
-                if (container) hide(container, 'reels');
+                // Reels section can be very tall (video), so use large max
+                var container = findContainer(el, 200, 3000);
+                if (container) {
+                    hide(container, 'reels');
+                } else {
+                    // Fallback: hide from this element up a few levels
+                    var p = el;
+                    for (var k = 0; k < 5; k++) { if (p.parentElement) p = p.parentElement; }
+                    hide(p, 'reels');
+                }
                 continue;
             }
 
