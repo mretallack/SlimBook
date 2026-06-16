@@ -67,6 +67,11 @@ To update filter rules without releasing a new APK:
 2. Push to `main`
 3. Restart the app
 
+## Known Issues / TODO
+
+- **Messenger** — Facebook blocks messaging on mobile web. Desktop UA redirect doesn't fully work yet. Needs investigation (possibly a separate WebView with desktop UA, or using `touch.facebook.com/messages/`).
+- **Reels/Stories gap** — hidden elements may leave a small grey gap due to parent elements with fixed inline heights.
+
 ## License
 
 [MIT](LICENSE)

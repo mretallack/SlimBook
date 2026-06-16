@@ -142,12 +142,45 @@
             }
         }
 
+        // AUTHOR DETECTION & BLOCKING via Android bridge
+        if (typeof Android !== 'undefined' && Android.reportAuthor) {
+            var links = document.querySelectorAll('span[role="link"]');
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i];
+                if (link.closest('[data-filtered]')) continue;
+                if (link.closest('[data-author-checked]')) continue;
+                var name = link.textContent?.trim() || '';
+                var lh = link.getBoundingClientRect().height;
+                // Authors are short-height link spans with reasonable name length
+                if (name.length > 2 && name.length < 80 && lh > 0 && lh < 25) {
+                    // Check if next sibling or nearby has a timestamp pattern
+                    var parent = link.parentElement;
+                    if (!parent) continue;
+                    var parentText = parent.textContent || '';
+                    // Timestamps contain digits followed by h/d/m or icon chars
+                    if (parentText.match(/\d+[hdm]/) || parentText.match(/\d+ \w{3}/)) {
+                        // This is a post author
+                        Android.reportAuthor(name);
+                        // Mark as checked so we don't re-process
+                        var postContainer = findContainer(link, 200, 2000);
+                        if (postContainer) {
+                            postContainer.setAttribute('data-author-checked', name);
+                            if (Android.isBlocked(name)) {
+                                hide(postContainer, 'blocked');
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         var stats = {
             ads: document.querySelectorAll('[data-filtered="ad"]').length,
             stories: document.querySelectorAll('[data-filtered="stories"]').length,
             suggestions: document.querySelectorAll('[data-filtered="suggestion"]').length,
             groups: document.querySelectorAll('[data-filtered="group"]').length,
             pages: document.querySelectorAll('[data-filtered="page"]').length,
+            blocked: document.querySelectorAll('[data-filtered="blocked"]').length,
             banners: document.querySelectorAll('[data-filtered="banner"]').length
         };
 
@@ -166,41 +199,29 @@
 
     window.__slimbook_filter = removeUnwanted;
     window.__slimbook_dump = function() {
-        // Dump info about elements containing "Join" or "Follow"
-        var all = document.querySelectorAll('*');
+        // Dump all short text elements to understand the post structure
+        var all = document.querySelectorAll('[role="link"], a, span');
         var results = [];
         for (var i = 0; i < all.length; i++) {
             var el = all[i];
-            // Only leaf-ish elements with short text
-            if (el.children.length > 3) continue;
             var text = el.textContent?.trim() || '';
-            if ((text === 'Join' || text === 'Follow' || text === 'Ad' || text === 'Sponsored' ||
-                 text.indexOf('· Join') !== -1 || text.indexOf('· Follow') !== -1) && text.length < 200) {
+            // Short text that could be author names or timestamps
+            if (text.length > 1 && text.length < 80 && el.children.length < 3) {
                 var rect = el.getBoundingClientRect();
-                // Walk up 5 parents to show structure
-                var parents = [];
-                var p = el;
-                for (var j = 0; j < 8; j++) {
-                    if (!p.parentElement) break;
-                    p = p.parentElement;
-                    var pr = p.getBoundingClientRect();
-                    parents.push(p.tagName + '.' + (p.className || '').substring(0,30) +
-                        '[h=' + Math.round(pr.height) + ']' +
-                        (p.getAttribute('data-mcomponent') ? ' mc=' + p.getAttribute('data-mcomponent') : '') +
-                        (p.getAttribute('role') ? ' role=' + p.getAttribute('role') : ''));
+                // Only visible elements in the top portion of a post area
+                if (rect.height > 0 && rect.height < 30 && rect.top > 0) {
+                    results.push({
+                        text: text.substring(0, 60),
+                        tag: el.tagName,
+                        role: el.getAttribute('role'),
+                        h: Math.round(rect.height),
+                        top: Math.round(rect.top)
+                    });
                 }
-                results.push({
-                    text: text.substring(0, 80),
-                    tag: el.tagName,
-                    class: (el.className || '').substring(0, 40),
-                    role: el.getAttribute('role'),
-                    h: Math.round(rect.height),
-                    w: Math.round(rect.width),
-                    parents: parents
-                });
             }
+            if (results.length > 50) break;
         }
-        console.log('SLIMBOOK_DUMP:' + JSON.stringify(results, null, 0));
+        console.log('SLIMBOOK_DUMP:' + JSON.stringify(results));
         return results;
     };
     window.__slimbook_setHighlight = function(on) {

@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var statsBadge: TextView
     private lateinit var filterManager: FilterManager
+    private lateinit var authorDb: AuthorDatabase
 
     private var filterJs: String = ""
     private var highlightMode = false
@@ -38,6 +39,7 @@ class MainActivity : AppCompatActivity() {
         swipeRefresh = findViewById(R.id.swipeRefresh)
         statsBadge = findViewById(R.id.statsBadge)
         filterManager = FilterManager(this)
+        authorDb = AuthorDatabase(this)
 
         setupCookies()
         setupWebView()
@@ -62,13 +64,18 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
+        webView.addJavascriptInterface(SlimBookBridge(authorDb), "Android")
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 val scheme = request.url.scheme ?: ""
-                // Redirect fb-messenger:// to mbasic messages (web.facebook.com blocks messaging)
+                Log.d("SlimBook", "NAV: $url")
+                // Redirect fb-messenger:// to desktop messages (mobile web blocks messaging)
                 if (scheme == "fb-messenger" || scheme == "fb") {
-                    view.loadUrl("https://mbasic.facebook.com/messages/")
+                    // Temporarily switch to desktop UA for messages
+                    view.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    view.loadUrl("https://www.facebook.com/messages/")
                     return true
                 }
                 return if (isFacebookUrl(url)) {
@@ -84,6 +91,11 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
+                Log.d("SlimBook", "PAGE: $url")
+                // Restore mobile UA when back on feed
+                if (url.contains("web.facebook.com")) {
+                    view.settings.userAgentString = MOBILE_UA
+                }
                 swipeRefresh.isRefreshing = false
                 injectFilter()
             }
@@ -146,6 +158,7 @@ class MainActivity : AppCompatActivity() {
         val items = arrayOf(
             if (highlightMode) "Disable highlight mode" else "Enable highlight mode",
             "View log (${logMessages.size} entries)",
+            "Manage authors (${authorDb.getAll().size})",
             "Dump DOM (Join/Follow elements)",
             "Re-run filter"
         )
@@ -155,8 +168,9 @@ class MainActivity : AppCompatActivity() {
                 when (which) {
                     0 -> toggleHighlight()
                     1 -> showLog()
-                    2 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
-                    3 -> injectFilter()
+                    2 -> showAuthorList()
+                    3 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
+                    4 -> injectFilter()
                 }
             }
             .show()
@@ -177,6 +191,27 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Filter Log")
             .setMessage(msg)
             .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun showAuthorList() {
+        val authors = authorDb.getAll()
+        if (authors.isEmpty()) {
+            Toast.makeText(this, "No authors seen yet. Scroll the feed first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val names = authors.map { it.first }.toTypedArray()
+        val checked = authors.map { it.second }.toBooleanArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Authors (uncheck to hide)")
+            .setMultiChoiceItems(names, checked) { _, which, isChecked ->
+                authorDb.setEnabled(names[which], isChecked)
+            }
+            .setPositiveButton("OK") { _, _ ->
+                // Re-run filter to apply changes immediately
+                injectFilter()
+            }
             .show()
     }
 
