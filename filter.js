@@ -35,13 +35,13 @@
         // Find timestamp text: look for small spans near the top of the post
         var spans = container.querySelectorAll('span');
         var timeText = '';
-        for (var i = 0; i < spans.length && i < 15; i++) {
+        for (var i = 0; i < spans.length && i < 25; i++) {
             var st = spans[i].textContent || '';
             // Timestamp patterns: short text with relative time or date
             if (st.length > 1 && st.length < 20 &&
                 (st.match(/\d+[hdmw]/) || st.indexOf('Yesterday') !== -1 ||
-                 st.match(/^\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i) ||
-                 st.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i))) {
+                 st.match(/\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i) ||
+                 st.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i))) {
                 timeText = st;
                 break;
             }
@@ -288,7 +288,7 @@
                     if (sp.closest('[data-age-checked]')) continue;
                     var spText = sp.textContent || '';
                     if (spText.length < 2 || spText.length > 20) continue;
-                    if (spText.match(/\d+[hdw]/) || spText.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d/i) || spText.match(/^\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i)) {
+                    if (spText.match(/\d+[hdw]/) || spText.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d/i) || spText.match(/\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i)) {
                         // Found a timestamp in an unchecked post
                         var postC = findContainer(sp, 200, 2000);
                         if (postC && !postC.getAttribute('data-age-checked') && !postC.getAttribute('data-filtered')) {
