@@ -10,6 +10,10 @@
             el.style.opacity = '0.4';
         } else {
             el.style.display = 'none';
+            el.style.height = '0';
+            el.style.overflow = 'hidden';
+            el.style.margin = '0';
+            el.style.padding = '0';
         }
         el.setAttribute('data-filtered', type);
     }
