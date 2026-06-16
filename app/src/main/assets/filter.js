@@ -38,10 +38,10 @@
         for (var i = 0; i < spans.length && i < 15; i++) {
             var st = spans[i].textContent || '';
             // Timestamp patterns: short text with relative time or date
-            // Must be short (real timestamps are <20 chars) to avoid matching post content
             if (st.length > 1 && st.length < 20 &&
                 (st.match(/\d+[hdmw]/) || st.indexOf('Yesterday') !== -1 ||
-                 st.match(/^\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i))) {
+                 st.match(/^\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i) ||
+                 st.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i))) {
                 timeText = st;
                 break;
             }
@@ -73,10 +73,17 @@
         }
         // Yesterday
         if (timeText.indexOf('Yesterday') !== -1) return 24;
-        // Absolute: "5 Jun", "13 June", "13 June at 10:27"
+        // Absolute: "5 Jun", "13 June", "Jun 9", "June 13 at 10:27"
         var months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,
                       january:0,february:1,march:2,april:3,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
         var absMatch = timeText.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)(?:\s+(\d{4}))?/i);
+        if (!absMatch) {
+            // Try month-first: "Jun 9", "June 13"
+            var mfMatch = timeText.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)\s+(\d{1,2})(?:\s+(\d{4}))?/i);
+            if (mfMatch) {
+                absMatch = [null, mfMatch[2], mfMatch[1], mfMatch[3]];
+            }
+        }
         if (absMatch) {
             var day = parseInt(absMatch[1]);
             var mon = months[absMatch[2].toLowerCase()];
@@ -281,7 +288,7 @@
                     if (sp.closest('[data-age-checked]')) continue;
                     var spText = sp.textContent || '';
                     if (spText.length < 2 || spText.length > 20) continue;
-                    if (spText.match(/\d+[hdw]/) && !spText.match(/\d+[hdw].*\d+[hdw]/)) {
+                    if (spText.match(/\d+[hdw]/) || spText.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d/i) || spText.match(/^\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i)) {
                         // Found a timestamp in an unchecked post
                         var postC = findContainer(sp, 200, 2000);
                         if (postC && !postC.getAttribute('data-age-checked') && !postC.getAttribute('data-filtered')) {
