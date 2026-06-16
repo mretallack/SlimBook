@@ -157,9 +157,10 @@ class MainActivity : AppCompatActivity() {
     private fun showDebugMenu() {
         val items = arrayOf(
             if (highlightMode) "Disable highlight mode" else "Enable highlight mode",
+            "Manage authors (${authorDb.getAllAuthors().size})",
+            "Manage groups (${authorDb.getAllGroups().size})",
             "View log (${logMessages.size} entries)",
-            "Manage authors (${authorDb.getAll().size})",
-            "Dump DOM (Join/Follow elements)",
+            "Dump DOM",
             "Re-run filter"
         )
         AlertDialog.Builder(this)
@@ -167,10 +168,11 @@ class MainActivity : AppCompatActivity() {
             .setItems(items) { _, which ->
                 when (which) {
                     0 -> toggleHighlight()
-                    1 -> showLog()
-                    2 -> showAuthorList()
-                    3 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
-                    4 -> injectFilter()
+                    1 -> showAuthorList()
+                    2 -> showGroupList()
+                    3 -> showLog()
+                    4 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
+                    5 -> injectFilter()
                 }
             }
             .show()
@@ -195,7 +197,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showAuthorList() {
-        val authors = authorDb.getAll()
+        val authors = authorDb.getAllAuthors()
         if (authors.isEmpty()) {
             Toast.makeText(this, "No authors seen yet. Scroll the feed first.", Toast.LENGTH_SHORT).show()
             return
@@ -206,12 +208,27 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Authors (uncheck to hide)")
             .setMultiChoiceItems(names, checked) { _, which, isChecked ->
-                authorDb.setEnabled(names[which], isChecked)
+                authorDb.setAuthorEnabled(names[which], isChecked)
             }
-            .setPositiveButton("OK") { _, _ ->
-                // Re-run filter to apply changes immediately
-                injectFilter()
+            .setPositiveButton("OK") { _, _ -> injectFilter() }
+            .show()
+    }
+
+    private fun showGroupList() {
+        val groups = authorDb.getAllGroups()
+        if (groups.isEmpty()) {
+            Toast.makeText(this, "No groups seen yet. Scroll the feed first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val names = groups.map { it.first }.toTypedArray()
+        val checked = groups.map { it.second }.toBooleanArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Groups (uncheck to hide)")
+            .setMultiChoiceItems(names, checked) { _, which, isChecked ->
+                authorDb.setGroupEnabled(names[which], isChecked)
             }
+            .setPositiveButton("OK") { _, _ -> injectFilter() }
             .show()
     }
 

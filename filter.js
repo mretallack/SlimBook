@@ -142,7 +142,7 @@
             }
         }
 
-        // AUTHOR DETECTION & BLOCKING via Android bridge
+        // AUTHOR & GROUP DETECTION via Android bridge
         if (typeof Android !== 'undefined' && Android.reportAuthor) {
             var links = document.querySelectorAll('span[role="link"]');
             for (var i = 0; i < links.length; i++) {
@@ -151,25 +151,50 @@
                 if (link.closest('[data-author-checked]')) continue;
                 var name = link.textContent?.trim() || '';
                 var lh = link.getBoundingClientRect().height;
-                // Authors are short-height link spans with reasonable name length
-                if (name.length > 2 && name.length < 80 && lh > 0 && lh < 25) {
-                    // Check if next sibling or nearby has a timestamp pattern
-                    var parent = link.parentElement;
-                    if (!parent) continue;
-                    var parentText = parent.textContent || '';
-                    // Timestamps contain digits followed by h/d/m or icon chars
-                    if (parentText.match(/\d+[hdm]/) || parentText.match(/\d+ \w{3}/)) {
-                        // This is a post author
-                        Android.reportAuthor(name);
-                        // Mark as checked so we don't re-process
-                        var postContainer = findContainer(link, 200, 2000);
-                        if (postContainer) {
-                            postContainer.setAttribute('data-author-checked', name);
-                            if (Android.isBlocked(name)) {
-                                hide(postContainer, 'blocked');
-                            }
+                if (name.length < 3 || name.length > 80 || lh <= 0 || lh > 25) continue;
+
+                var parent = link.parentElement;
+                if (!parent) continue;
+                var parentText = parent.textContent || '';
+
+                // Check if this is a timestamp line (author) or a group header
+                if (parentText.match(/\d+[hdm]/) || parentText.match(/\d+ \w{3}/)) {
+                    // Check if there's another role=link sibling (indicates group + author)
+                    var siblingLinks = parent.querySelectorAll('span[role="link"]');
+                    var isGroup = false;
+                    var authorName = name;
+                    var groupName = '';
+
+                    if (siblingLinks.length >= 2) {
+                        // First link is group, second is author (or the one near timestamp)
+                        var first = siblingLinks[0].textContent?.trim() || '';
+                        var second = siblingLinks[1].textContent?.trim() || '';
+                        // The one NOT next to a timestamp is the group
+                        // Check which one the timestamp is closest to
+                        var secondParent = siblingLinks[1].parentElement;
+                        var secondText = secondParent ? secondParent.textContent : '';
+                        if (secondText.match(/\d+[hdm]/)) {
+                            groupName = first;
+                            authorName = second;
+                        } else {
+                            groupName = second;
+                            authorName = first;
                         }
                     }
+
+                    var postContainer = findContainer(link, 200, 2000);
+                    if (postContainer && !postContainer.getAttribute('data-author-checked')) {
+                        postContainer.setAttribute('data-author-checked', authorName);
+
+                        Android.reportAuthor(authorName);
+                        if (groupName) Android.reportGroup(groupName);
+
+                        if (Android.isBlocked(authorName) || (groupName && Android.isBlocked(groupName))) {
+                            hide(postContainer, 'blocked');
+                        }
+                    }
+                    // Skip the other sibling links we already processed
+                    if (siblingLinks.length >= 2) i++;
                 }
             }
         }

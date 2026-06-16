@@ -5,31 +5,46 @@ import android.content.SharedPreferences
 
 class AuthorDatabase(context: Context) {
 
-    private val prefs: SharedPreferences =
+    private val authorPrefs: SharedPreferences =
         context.getSharedPreferences("authors", Context.MODE_PRIVATE)
+    private val groupPrefs: SharedPreferences =
+        context.getSharedPreferences("groups", Context.MODE_PRIVATE)
 
-    /** Report a seen author. Adds to DB if new (enabled by default). */
     fun reportAuthor(name: String) {
-        if (!prefs.contains(name)) {
-            prefs.edit().putBoolean(name, true).apply() // true = enabled (shown)
+        if (!authorPrefs.contains(name)) {
+            authorPrefs.edit().putBoolean(name, true).apply()
         }
     }
 
-    /** Returns true if author is blocked (checkbox disabled). */
-    fun isBlocked(name: String): Boolean {
-        // Unknown authors are allowed by default
-        return prefs.contains(name) && !prefs.getBoolean(name, true)
+    fun reportGroup(name: String) {
+        if (!groupPrefs.contains(name)) {
+            groupPrefs.edit().putBoolean(name, true).apply()
+        }
     }
 
-    /** Get all authors sorted alphabetically with their enabled state. */
-    fun getAll(): List<Pair<String, Boolean>> {
-        return prefs.all
+    fun isBlocked(name: String): Boolean {
+        if (authorPrefs.contains(name)) return !authorPrefs.getBoolean(name, true)
+        if (groupPrefs.contains(name)) return !groupPrefs.getBoolean(name, true)
+        return false
+    }
+
+    fun getAllAuthors(): List<Pair<String, Boolean>> {
+        return authorPrefs.all
             .mapNotNull { (k, v) -> if (v is Boolean) k to v else null }
             .sortedBy { it.first.lowercase() }
     }
 
-    /** Set enabled state for an author. */
-    fun setEnabled(name: String, enabled: Boolean) {
-        prefs.edit().putBoolean(name, enabled).apply()
+    fun getAllGroups(): List<Pair<String, Boolean>> {
+        return groupPrefs.all
+            .mapNotNull { (k, v) -> if (v is Boolean) k to v else null }
+            .sortedBy { it.first.lowercase() }
+    }
+
+    fun setAuthorEnabled(name: String, enabled: Boolean) {
+        authorPrefs.edit().putBoolean(name, enabled).apply()
+    }
+
+    fun setGroupEnabled(name: String, enabled: Boolean) {
+        groupPrefs.edit().putBoolean(name, enabled).apply()
     }
 }

@@ -10,6 +10,11 @@ class SlimBookBridge(private val db: AuthorDatabase) {
     }
 
     @JavascriptInterface
+    fun reportGroup(name: String) {
+        db.reportGroup(name.trim())
+    }
+
+    @JavascriptInterface
     fun isBlocked(name: String): Boolean {
         return db.isBlocked(name.trim())
     }
