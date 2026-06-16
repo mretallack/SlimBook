@@ -38,7 +38,7 @@
         for (var i = 0; i < spans.length && i < 25; i++) {
             var st = spans[i].textContent || '';
             // Timestamp patterns: short text with relative time or date
-            if (st.length > 1 && st.length < 20 &&
+            if (st.length > 1 && st.length < 60 &&
                 (st.match(/\d+[hdmw]/) || st.indexOf('Yesterday') !== -1 ||
                  st.match(/\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i) ||
                  st.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i))) {
@@ -287,7 +287,7 @@
                     if (sp.closest('[data-author-checked]')) continue;
                     if (sp.closest('[data-age-checked]')) continue;
                     var spText = sp.textContent || '';
-                    if (spText.length < 2 || spText.length > 20) continue;
+                    if (spText.length < 2 || spText.length > 60) continue;
                     if (spText.match(/\d+[hdw]/) || spText.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d/i) || spText.match(/\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i)) {
                         // Found a timestamp in an unchecked post
                         var postC = findContainer(sp, 200, 2000);
