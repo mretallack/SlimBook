@@ -33,23 +33,23 @@
     // Parse post timestamp and return age in hours
     function getPostAgeHours(container) {
         // Find timestamp text: look for small spans near the top of the post
-        // Timestamps are short text containing digits+h/d/m/w or month names
         var spans = container.querySelectorAll('span');
         var timeText = '';
-        for (var i = 0; i < spans.length && i < 30; i++) {
-            var st = spans[i].textContent?.trim() || '';
-            // Timestamp patterns: "4m", "16h", "1d", "2w", "5 Jun", "Yesterday", "13 June at 10:27"
-            if (st.length > 1 && st.length < 40 && st.match(/\d+[hdmw]|Yesterday|\d+\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i)) {
+        for (var i = 0; i < spans.length && i < 50; i++) {
+            var st = spans[i].textContent || '';
+            // Timestamp patterns embedded with icon chars
+            if (st.length > 1 && st.length < 50 &&
+                (st.match(/\d+[hdmw]/) || st.indexOf('Yesterday') !== -1 ||
+                 st.match(/\d+\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i))) {
                 timeText = st;
                 break;
             }
         }
-        if (!timeText) return -1;
+        if (!timeText) {
+            return -1;
+        }
 
-        // Relative: Xm
-        var minMatch = timeText.match(/(\d+)m/);
-        if (minMatch && !timeText.match(/(\d+)\s+(Mar|May)/i)) return parseInt(minMatch[1]) / 60;
-        // Relative: Xh
+        // Relative: Xh (check before Xm to avoid month confusion)
         var hourMatch = timeText.match(/(\d+)h/);
         if (hourMatch) return parseInt(hourMatch[1]);
         // Relative: Xd
@@ -58,6 +58,11 @@
         // Relative: Xw
         var weekMatch = timeText.match(/(\d+)w/);
         if (weekMatch) return parseInt(weekMatch[1]) * 168;
+        // Relative: Xm (but not month names)
+        var minMatch = timeText.match(/(\d+)m/);
+        if (minMatch && !timeText.match(/\d+\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i)) {
+            return parseInt(minMatch[1]) / 60;
+        }
         // Yesterday
         if (timeText.indexOf('Yesterday') !== -1) return 24;
         // Absolute: "5 Jun", "13 June", "13 June at 10:27"
@@ -74,7 +79,6 @@
             if (diff < 0) diff = 0;
             return diff / (1000 * 60 * 60);
         }
-        // Can't parse
         return -1;
     }
 
