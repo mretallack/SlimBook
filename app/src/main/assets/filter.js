@@ -145,56 +145,53 @@
         // AUTHOR & GROUP DETECTION via Android bridge
         if (typeof Android !== 'undefined' && Android.reportAuthor) {
             var links = document.querySelectorAll('span[role="link"]');
+            var processed = [];
             for (var i = 0; i < links.length; i++) {
                 var link = links[i];
                 if (link.closest('[data-filtered]')) continue;
                 if (link.closest('[data-author-checked]')) continue;
+                if (processed.indexOf(link) !== -1) continue;
                 var name = link.textContent?.trim() || '';
                 var lh = link.getBoundingClientRect().height;
                 if (name.length < 3 || name.length > 80 || lh <= 0 || lh > 25) continue;
 
-                var parent = link.parentElement;
-                if (!parent) continue;
-                var parentText = parent.textContent || '';
+                // Find the post container for this link
+                var postContainer = findContainer(link, 200, 2000);
+                if (!postContainer || postContainer.getAttribute('data-author-checked')) continue;
 
-                // Check if this is a timestamp line (author) or a group header
-                if (parentText.match(/\d+[hdm]/) || parentText.match(/\d+ \w{3}/)) {
-                    // Check if there's another role=link sibling (indicates group + author)
-                    var siblingLinks = parent.querySelectorAll('span[role="link"]');
-                    var isGroup = false;
-                    var authorName = name;
-                    var groupName = '';
-
-                    if (siblingLinks.length >= 2) {
-                        // First link is group, second is author (or the one near timestamp)
-                        var first = siblingLinks[0].textContent?.trim() || '';
-                        var second = siblingLinks[1].textContent?.trim() || '';
-                        // The one NOT next to a timestamp is the group
-                        // Check which one the timestamp is closest to
-                        var secondParent = siblingLinks[1].parentElement;
-                        var secondText = secondParent ? secondParent.textContent : '';
-                        if (secondText.match(/\d+[hdm]/)) {
-                            groupName = first;
-                            authorName = second;
-                        } else {
-                            groupName = second;
-                            authorName = first;
-                        }
+                // Find all role=link spans in this post container
+                var postLinks = postContainer.querySelectorAll('span[role="link"]');
+                var candidates = [];
+                for (var j = 0; j < postLinks.length; j++) {
+                    var pl = postLinks[j];
+                    var pn = pl.textContent?.trim() || '';
+                    var ph = pl.getBoundingClientRect().height;
+                    if (pn.length > 2 && pn.length < 80 && ph > 0 && ph < 25) {
+                        candidates.push(pn);
+                        processed.push(pl);
                     }
+                    if (candidates.length >= 3) break;
+                }
 
-                    var postContainer = findContainer(link, 200, 2000);
-                    if (postContainer && !postContainer.getAttribute('data-author-checked')) {
-                        postContainer.setAttribute('data-author-checked', authorName);
+                // Determine group vs author
+                // If 2+ candidates: first is likely group/page, second is author
+                var groupName = '';
+                var authorName = '';
+                if (candidates.length >= 2) {
+                    groupName = candidates[0];
+                    authorName = candidates[1];
+                } else if (candidates.length === 1) {
+                    authorName = candidates[0];
+                }
 
-                        Android.reportAuthor(authorName);
-                        if (groupName) Android.reportGroup(groupName);
+                if (authorName) {
+                    postContainer.setAttribute('data-author-checked', authorName);
+                    Android.reportAuthor(authorName);
+                    if (groupName) Android.reportGroup(groupName);
 
-                        if (Android.isBlocked(authorName) || (groupName && Android.isBlocked(groupName))) {
-                            hide(postContainer, 'blocked');
-                        }
+                    if (Android.isBlocked(authorName) || (groupName && Android.isBlocked(groupName))) {
+                        hide(postContainer, 'blocked');
                     }
-                    // Skip the other sibling links we already processed
-                    if (siblingLinks.length >= 2) i++;
                 }
             }
         }
