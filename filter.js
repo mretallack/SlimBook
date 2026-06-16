@@ -57,6 +57,13 @@
                 continue;
             }
 
+            // REELS
+            if (trimmed === 'Reels' || trimmed === 'Reels and short videos') {
+                var container = findContainer(el, 200, 1500);
+                if (container) hide(container, 'reels');
+                continue;
+            }
+
             // GROUP SUGGESTIONS: element text is exactly "Join"
             if (trimmed === 'Join') {
                 var container = findContainer(el, 200, 1500);
