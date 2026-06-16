@@ -72,8 +72,17 @@
 
             // STORIES
             if (trimmed === 'Create story') {
-                var container = findContainer(el, 100, 350);
-                if (container) hide(container, 'stories');
+                // Walk up to find the stories section container
+                var p = el;
+                for (var k = 0; k < 15; k++) {
+                    if (!p.parentElement) break;
+                    p = p.parentElement;
+                    var ph = p.getBoundingClientRect().height;
+                    if (ph > 100 && ph < 500 && p.children.length >= 2) {
+                        break;
+                    }
+                }
+                hide(p, 'stories');
                 continue;
             }
 
