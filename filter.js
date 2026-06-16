@@ -30,6 +30,38 @@
         return null;
     }
 
+    // Parse post timestamp and return age in hours
+    function getPostAgeHours(container) {
+        var text = container.textContent || '';
+        // Look for relative timestamps: Xm, Xh, Xd, Xw
+        var relMatch = text.match(/(\d+)m[^a-z]/i) || text.match(/(\d+)m$/);
+        if (relMatch) return parseInt(relMatch[1]) / 60;
+        var hourMatch = text.match(/(\d+)h/);
+        if (hourMatch) return parseInt(hourMatch[1]);
+        var dayMatch = text.match(/(\d+)d/);
+        if (dayMatch) return parseInt(dayMatch[1]) * 24;
+        var weekMatch = text.match(/(\d+)w/);
+        if (weekMatch) return parseInt(weekMatch[1]) * 168;
+        // "Yesterday"
+        if (text.indexOf('Yesterday') !== -1) return 24;
+        // Absolute dates: "5 Jun", "13 June", "13 June at 10:27", "5 Jun 2024"
+        var months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,
+                      january:0,february:1,march:2,april:3,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
+        var absMatch = text.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)(?:\s+(\d{4}))?/i);
+        if (absMatch) {
+            var day = parseInt(absMatch[1]);
+            var mon = months[absMatch[2].toLowerCase()];
+            var year = absMatch[3] ? parseInt(absMatch[3]) : new Date().getFullYear();
+            var postDate = new Date(year, mon, day);
+            var now = new Date();
+            var diff = now - postDate;
+            if (diff < 0) diff = 0;
+            return diff / (1000 * 60 * 60);
+        }
+        // Can't parse — return -1 (don't filter)
+        return -1;
+    }
+
     function removeUnwanted() {
         // Only filter on the home feed
         var path = window.location.pathname;
@@ -144,6 +176,7 @@
 
         // AUTHOR & GROUP DETECTION via Android bridge
         if (typeof Android !== 'undefined' && Android.reportAuthor) {
+            var maxAgeHours = Android.getMaxAgeHours();
             var links = document.querySelectorAll('span[role="link"]');
             var processed = [];
             for (var i = 0; i < links.length; i++) {
@@ -191,6 +224,11 @@
 
                     if (Android.isBlocked(authorName) || (groupName && Android.isBlocked(groupName))) {
                         hide(postContainer, 'blocked');
+                    } else if (maxAgeHours > 0) {
+                        var ageH = getPostAgeHours(postContainer);
+                        if (ageH > 0 && ageH > maxAgeHours) {
+                            hide(postContainer, 'old');
+                        }
                     }
                 }
             }
@@ -203,6 +241,7 @@
             groups: document.querySelectorAll('[data-filtered="group"]').length,
             pages: document.querySelectorAll('[data-filtered="page"]').length,
             blocked: document.querySelectorAll('[data-filtered="blocked"]').length,
+            old: document.querySelectorAll('[data-filtered="old"]').length,
             banners: document.querySelectorAll('[data-filtered="banner"]').length
         };
 

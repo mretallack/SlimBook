@@ -18,4 +18,9 @@ class SlimBookBridge(private val db: AuthorDatabase) {
     fun isBlocked(name: String): Boolean {
         return db.isBlocked(name.trim())
     }
+
+    @JavascriptInterface
+    fun getMaxAgeHours(): Int {
+        return db.getMaxAgeHours()
+    }
 }

@@ -9,6 +9,8 @@ class AuthorDatabase(context: Context) {
         context.getSharedPreferences("authors", Context.MODE_PRIVATE)
     private val groupPrefs: SharedPreferences =
         context.getSharedPreferences("groups", Context.MODE_PRIVATE)
+    private val settingsPrefs: SharedPreferences =
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     fun reportAuthor(name: String) {
         if (!authorPrefs.contains(name)) {
@@ -46,5 +48,13 @@ class AuthorDatabase(context: Context) {
 
     fun setGroupEnabled(name: String, enabled: Boolean) {
         groupPrefs.edit().putBoolean(name, enabled).apply()
+    }
+
+    fun getMaxAgeHours(): Int {
+        return settingsPrefs.getInt("max_age_hours", 0) // 0 = off
+    }
+
+    fun setMaxAgeHours(hours: Int) {
+        settingsPrefs.edit().putInt("max_age_hours", hours).apply()
     }
 }

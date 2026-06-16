@@ -155,10 +155,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDebugMenu() {
+        val ageLabel = when (authorDb.getMaxAgeHours()) {
+            0 -> "off"
+            24 -> "1 day"
+            48 -> "2 days"
+            120 -> "5 days"
+            240 -> "10 days"
+            else -> "${authorDb.getMaxAgeHours()}h"
+        }
         val items = arrayOf(
             if (highlightMode) "Disable highlight mode" else "Enable highlight mode",
             "Manage authors (${authorDb.getAllAuthors().size})",
             "Manage groups (${authorDb.getAllGroups().size})",
+            "Post age filter ($ageLabel)",
             "View log (${logMessages.size} entries)",
             "Dump DOM",
             "Re-run filter"
@@ -170,9 +179,10 @@ class MainActivity : AppCompatActivity() {
                     0 -> toggleHighlight()
                     1 -> showAuthorList()
                     2 -> showGroupList()
-                    3 -> showLog()
-                    4 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
-                    5 -> injectFilter()
+                    3 -> showAgeFilter()
+                    4 -> showLog()
+                    5 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
+                    6 -> injectFilter()
                 }
             }
             .show()
@@ -229,6 +239,22 @@ class MainActivity : AppCompatActivity() {
                 authorDb.setGroupEnabled(names[which], isChecked)
             }
             .setPositiveButton("OK") { _, _ -> injectFilter() }
+            .show()
+    }
+
+    private fun showAgeFilter() {
+        val options = arrayOf("Off", "1 day", "2 days", "5 days", "10 days")
+        val values = intArrayOf(0, 24, 48, 120, 240)
+        val current = values.indexOf(authorDb.getMaxAgeHours()).coerceAtLeast(0)
+
+        AlertDialog.Builder(this)
+            .setTitle("Hide posts older than:")
+            .setSingleChoiceItems(options, current) { dialog, which ->
+                authorDb.setMaxAgeHours(values[which])
+                dialog.dismiss()
+                injectFilter()
+                Toast.makeText(this, "Age filter: ${options[which]}", Toast.LENGTH_SHORT).show()
+            }
             .show()
     }
 
