@@ -10,27 +10,10 @@
             el.style.opacity = '0.4';
         } else {
             el.style.setProperty('display', 'none', 'important');
+            // Also try to remove the element from flow entirely
+            el.setAttribute('hidden', '');
         }
         el.setAttribute('data-filtered', type);
-    }
-
-    // Hide and also collapse any parent with inline height (for Reels/Stories gaps)
-    function hideCollapse(el, type) {
-        if (!el || el.getAttribute('data-filtered')) return;
-        hide(el, type);
-        if (highlightMode) return;
-        // Walk up parents and zero any inline height styles
-        var p = el.parentElement;
-        for (var i = 0; i < 5; i++) {
-            if (!p || p === document.body) break;
-            var s = p.getAttribute('style') || '';
-            if (s.indexOf('height') !== -1) {
-                p.style.setProperty('height', '0px', 'important');
-                p.style.setProperty('min-height', '0', 'important');
-                p.style.setProperty('overflow', 'hidden', 'important');
-            }
-            p = p.parentElement;
-        }
     }
 
     // Walk up to find a sizeable parent container
@@ -89,7 +72,7 @@
                         break;
                     }
                 }
-                if (found) hideCollapse(p, 'stories');
+                if (found) hide(p, 'stories');
                 continue;
             }
 
@@ -106,7 +89,7 @@
                         break;
                     }
                 }
-                if (found) hideCollapse(p, 'reels');
+                if (found) hide(p, 'reels');
                 continue;
             }
 
