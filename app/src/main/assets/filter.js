@@ -59,16 +59,19 @@
 
             // REELS
             if ((trimmed === 'Reels' || trimmed.indexOf('Reels') !== -1) && trimmed.length < 30) {
-                // Reels section can be very tall (video), so use large max
-                var container = findContainer(el, 200, 3000);
-                if (container) {
-                    hide(container, 'reels');
-                } else {
-                    // Fallback: hide from this element up a few levels
-                    var p = el;
-                    for (var k = 0; k < 5; k++) { if (p.parentElement) p = p.parentElement; }
-                    hide(p, 'reels');
+                // Walk up to find the section containing both header and video
+                var p = el;
+                for (var k = 0; k < 25; k++) {
+                    if (!p.parentElement) break;
+                    p = p.parentElement;
+                    // Stop when we find a container that has the reels header + video content
+                    // and is between viewport height and 2x viewport
+                    var ph = p.getBoundingClientRect().height;
+                    if (ph > 400 && ph < window.innerHeight * 2 && p.children.length >= 2) {
+                        break;
+                    }
                 }
+                hide(p, 'reels');
                 continue;
             }
 
