@@ -212,16 +212,9 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "No authors seen yet. Scroll the feed first.", Toast.LENGTH_SHORT).show()
             return
         }
-        val names = authors.map { it.first }.toTypedArray()
-        val checked = authors.map { it.second }.toBooleanArray()
-
-        AlertDialog.Builder(this)
-            .setTitle("Authors (uncheck to hide)")
-            .setMultiChoiceItems(names, checked) { _, which, isChecked ->
-                authorDb.setAuthorEnabled(names[which], isChecked)
-            }
-            .setPositiveButton("OK") { _, _ -> injectFilter() }
-            .show()
+        showFilterableList("Authors (uncheck to hide)", authors) { name, enabled ->
+            authorDb.setAuthorEnabled(name, enabled)
+        }
     }
 
     private fun showGroupList() {
@@ -230,14 +223,54 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "No groups seen yet. Scroll the feed first.", Toast.LENGTH_SHORT).show()
             return
         }
-        val names = groups.map { it.first }.toTypedArray()
-        val checked = groups.map { it.second }.toBooleanArray()
+        showFilterableList("Groups (uncheck to hide)", groups) { name, enabled ->
+            authorDb.setGroupEnabled(name, enabled)
+        }
+    }
+
+    private fun showFilterableList(
+        title: String,
+        items: List<Pair<String, Boolean>>,
+        onToggle: (String, Boolean) -> Unit
+    ) {
+        val view = layoutInflater.inflate(R.layout.dialog_search_list, null)
+        val searchEdit = view.findViewById<android.widget.EditText>(R.id.searchEdit)
+        val listView = view.findViewById<android.widget.ListView>(R.id.listView)
+
+        var filtered = items.toMutableList()
+        val adapter = object : android.widget.BaseAdapter() {
+            override fun getCount() = filtered.size
+            override fun getItem(pos: Int) = filtered[pos]
+            override fun getItemId(pos: Int) = pos.toLong()
+            override fun getView(pos: Int, cv: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                val cb = (cv as? android.widget.CheckBox) ?: android.widget.CheckBox(this@MainActivity)
+                val (name, enabled) = filtered[pos]
+                cb.text = name
+                cb.setOnCheckedChangeListener(null)
+                cb.isChecked = enabled
+                cb.setOnCheckedChangeListener { _, isChecked ->
+                    onToggle(name, isChecked)
+                    filtered[pos] = name to isChecked
+                }
+                return cb
+            }
+        }
+        listView.adapter = adapter
+
+        searchEdit.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val query = s.toString().lowercase()
+                filtered = if (query.isEmpty()) items.toMutableList()
+                else items.filter { it.first.lowercase().contains(query) }.toMutableList()
+                adapter.notifyDataSetChanged()
+            }
+        })
 
         AlertDialog.Builder(this)
-            .setTitle("Groups (uncheck to hide)")
-            .setMultiChoiceItems(names, checked) { _, which, isChecked ->
-                authorDb.setGroupEnabled(names[which], isChecked)
-            }
+            .setTitle(title)
+            .setView(view)
             .setPositiveButton("OK") { _, _ -> injectFilter() }
             .show()
     }
