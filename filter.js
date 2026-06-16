@@ -32,22 +32,38 @@
 
     // Parse post timestamp and return age in hours
     function getPostAgeHours(container) {
-        var text = container.textContent || '';
-        // Look for relative timestamps: Xm, Xh, Xd, Xw
-        var relMatch = text.match(/(\d+)m[^a-z]/i) || text.match(/(\d+)m$/);
-        if (relMatch) return parseInt(relMatch[1]) / 60;
-        var hourMatch = text.match(/(\d+)h/);
+        // Find timestamp text: look for small spans near the top of the post
+        // Timestamps are short text containing digits+h/d/m/w or month names
+        var spans = container.querySelectorAll('span');
+        var timeText = '';
+        for (var i = 0; i < spans.length && i < 30; i++) {
+            var st = spans[i].textContent?.trim() || '';
+            // Timestamp patterns: "4m", "16h", "1d", "2w", "5 Jun", "Yesterday", "13 June at 10:27"
+            if (st.length > 1 && st.length < 40 && st.match(/\d+[hdmw]|Yesterday|\d+\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i)) {
+                timeText = st;
+                break;
+            }
+        }
+        if (!timeText) return -1;
+
+        // Relative: Xm
+        var minMatch = timeText.match(/(\d+)m/);
+        if (minMatch && !timeText.match(/(\d+)\s+(Mar|May)/i)) return parseInt(minMatch[1]) / 60;
+        // Relative: Xh
+        var hourMatch = timeText.match(/(\d+)h/);
         if (hourMatch) return parseInt(hourMatch[1]);
-        var dayMatch = text.match(/(\d+)d/);
+        // Relative: Xd
+        var dayMatch = timeText.match(/(\d+)d/);
         if (dayMatch) return parseInt(dayMatch[1]) * 24;
-        var weekMatch = text.match(/(\d+)w/);
+        // Relative: Xw
+        var weekMatch = timeText.match(/(\d+)w/);
         if (weekMatch) return parseInt(weekMatch[1]) * 168;
-        // "Yesterday"
-        if (text.indexOf('Yesterday') !== -1) return 24;
-        // Absolute dates: "5 Jun", "13 June", "13 June at 10:27", "5 Jun 2024"
+        // Yesterday
+        if (timeText.indexOf('Yesterday') !== -1) return 24;
+        // Absolute: "5 Jun", "13 June", "13 June at 10:27"
         var months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,
                       january:0,february:1,march:2,april:3,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
-        var absMatch = text.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)(?:\s+(\d{4}))?/i);
+        var absMatch = timeText.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)(?:\s+(\d{4}))?/i);
         if (absMatch) {
             var day = parseInt(absMatch[1]);
             var mon = months[absMatch[2].toLowerCase()];
@@ -58,7 +74,7 @@
             if (diff < 0) diff = 0;
             return diff / (1000 * 60 * 60);
         }
-        // Can't parse — return -1 (don't filter)
+        // Can't parse
         return -1;
     }
 

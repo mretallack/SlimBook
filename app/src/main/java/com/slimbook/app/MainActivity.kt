@@ -157,6 +157,7 @@ class MainActivity : AppCompatActivity() {
     private fun showDebugMenu() {
         val ageLabel = when (authorDb.getMaxAgeHours()) {
             0 -> "off"
+            12 -> "12 hours"
             24 -> "1 day"
             48 -> "2 days"
             120 -> "5 days"
@@ -276,8 +277,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showAgeFilter() {
-        val options = arrayOf("Off", "1 day", "2 days", "5 days", "10 days")
-        val values = intArrayOf(0, 24, 48, 120, 240)
+        val options = arrayOf("Off", "12 hours", "1 day", "2 days", "5 days", "10 days")
+        val values = intArrayOf(0, 12, 24, 48, 120, 240)
         val current = values.indexOf(authorDb.getMaxAgeHours()).coerceAtLeast(0)
 
         AlertDialog.Builder(this)
