@@ -17,10 +17,14 @@
             el.style.setProperty('padding', '0', 'important');
             // Also collapse parents that have explicit height styles
             var p = el.parentElement;
-            for (var i = 0; i < 5; i++) {
+            for (var i = 0; i < 10; i++) {
                 if (!p) break;
-                if (p.style.height && parseInt(p.style.height) > 0) {
+                var pStyle = p.getAttribute('style') || '';
+                if (pStyle.indexOf('height') !== -1) {
                     p.style.setProperty('height', 'auto', 'important');
+                    p.style.setProperty('min-height', '0', 'important');
+                    p.style.setProperty('max-height', '0', 'important');
+                    p.style.setProperty('overflow', 'hidden', 'important');
                 }
                 p = p.parentElement;
             }
