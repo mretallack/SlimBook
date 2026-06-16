@@ -18,7 +18,7 @@ class FilterManager(private val context: Context) {
 
     suspend fun getFilterJs(): String {
         cachedJs?.let { return it }
-        val js = loadBundled()
+        val js = fetchRemote() ?: loadBundled()
         cachedJs = js
         return js
     }

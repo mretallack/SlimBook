@@ -47,13 +47,6 @@
             }
         }
         if (!timeText) {
-            // Log first few spans to understand the structure
-            var debugSpans = [];
-            for (var di = 0; di < spans.length && di < 10; di++) {
-                var ds = spans[di].textContent || '';
-                if (ds.length > 1 && ds.length < 50) debugSpans.push(ds.substring(0, 30));
-            }
-            console.log('SLIMBOOK:NO_TIME:' + JSON.stringify(debugSpans));
             return -1;
         }
 
@@ -261,7 +254,6 @@
                         hide(postContainer, 'blocked');
                     } else if (maxAgeHours > 0) {
                         var ageH = getPostAgeHours(postContainer);
-                        console.log('SLIMBOOK:AGE:' + authorName + '=' + Math.round(ageH) + 'h max=' + maxAgeHours);
                         if (ageH > 0 && ageH > maxAgeHours) {
                             hide(postContainer, 'old');
                         }
