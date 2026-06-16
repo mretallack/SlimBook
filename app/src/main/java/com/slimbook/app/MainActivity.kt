@@ -66,9 +66,9 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 val scheme = request.url.scheme ?: ""
-                // Redirect fb-messenger:// to web messages
+                // Redirect fb-messenger:// to mbasic messages (web.facebook.com blocks messaging)
                 if (scheme == "fb-messenger" || scheme == "fb") {
-                    view.loadUrl("https://web.facebook.com/messages/")
+                    view.loadUrl("https://mbasic.facebook.com/messages/")
                     return true
                 }
                 return if (isFacebookUrl(url)) {
