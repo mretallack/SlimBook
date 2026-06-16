@@ -108,8 +108,9 @@
             }
 
             // SUGGESTIONS
-            if (trimmed === 'People you may know' || trimmed === 'Suggested for you') {
-                var container = findContainer(el, 200, 600);
+            var lower = trimmed.toLowerCase();
+            if (lower === 'people you may know' || lower === 'suggested for you') {
+                var container = findContainer(el, 200, 1500);
                 if (container) hide(container, 'suggestion');
                 continue;
             }
