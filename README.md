@@ -19,11 +19,19 @@ The filter runs continuously via a MutationObserver, catching new content as it 
 ## Features
 
 - 🛡️ Real-time content filtering with stats badge
+- 🚫 Removes ads, sponsored posts, stories, reels
+- 👥 Removes group suggestions ("Join") and page suggestions ("Follow")
+- 🙈 Removes "People You May Know" and "Are you interested?" prompts
+- 💬 Messenger support (via mbasic.facebook.com)
+- 👤 Author management — see all detected authors, uncheck to block
+- 📋 Group management — see all detected groups, uncheck to block
+- 🔍 Searchable author and group lists
+- ⏰ Post age filter (12h / 1d / 2d / 5d / 10d) — hides old posts
 - 🔄 Pull-to-refresh
 - 🔗 External links open in system browser
 - 🍪 Persistent login (cookies survive app restarts)
 - 🐛 Debug tools (highlight mode, DOM dump, console log viewer)
-- 📡 Remote filter updates — filter rules can be updated without a new APK
+- 📡 Remote filter updates — filter rules updated without new APK
 
 ## Build
 
@@ -69,8 +77,8 @@ To update filter rules without releasing a new APK:
 
 ## Known Issues / TODO
 
-- **Messenger** — Facebook blocks messaging on mobile web. Desktop UA redirect doesn't fully work yet. Needs investigation (possibly a separate WebView with desktop UA, or using `touch.facebook.com/messages/`).
 - **Reels/Stories gap** — hidden elements may leave a small grey gap due to parent elements with fixed inline heights.
+- Some group/author misclassification in the detection.
 
 ## License
 
