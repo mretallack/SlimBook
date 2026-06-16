@@ -1,6 +1,7 @@
 package com.slimbook.app
 
 import android.content.Intent
+import android.util.Log
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -81,9 +82,10 @@ class MainActivity : AppCompatActivity() {
         webView.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
                 val text = msg.message()
+                Log.d("SlimBook", text)
                 if (text.startsWith("SLIMBOOK_STATS:")) {
                     updateStats(text.removePrefix("SLIMBOOK_STATS:"))
-                } else if (text.startsWith("SLIMBOOK:")) {
+                } else if (text.startsWith("SLIMBOOK")) {
                     logMessages.add(text)
                     if (logMessages.size > 100) logMessages.removeAt(0)
                 }
@@ -121,10 +123,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStats(json: String) {
         try {
-            // Simple parse: {"ads":1,"stories":1,"suggestions":1,"banners":1}
             val nums = Regex("\\d+").findAll(json).map { it.value.toInt() }.toList()
-            if (nums.size >= 4) {
-                val text = "\uD83D\uDEE1 A:${nums[0]} S:${nums[1]} P:${nums[2]} B:${nums[3]}"
+            if (nums.size >= 6) {
+                val total = nums.sum()
+                val text = "\uD83D\uDEE1 A:${nums[0]} S:${nums[1]} P:${nums[2]} G:${nums[3]} F:${nums[4]} B:${nums[5]}"
                 statsBadge.text = text
             }
         } catch (_: Exception) {}
@@ -134,6 +136,7 @@ class MainActivity : AppCompatActivity() {
         val items = arrayOf(
             if (highlightMode) "Disable highlight mode" else "Enable highlight mode",
             "View log (${logMessages.size} entries)",
+            "Dump DOM (Join/Follow elements)",
             "Re-run filter"
         )
         AlertDialog.Builder(this)
@@ -142,7 +145,8 @@ class MainActivity : AppCompatActivity() {
                 when (which) {
                     0 -> toggleHighlight()
                     1 -> showLog()
-                    2 -> injectFilter()
+                    2 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
+                    3 -> injectFilter()
                 }
             }
             .show()

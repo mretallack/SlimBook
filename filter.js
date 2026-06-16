@@ -1,5 +1,5 @@
-// SlimBook Content Filter v1.0
-// Removes ads, stories, suggestions, and app banners from web.facebook.com (WebLite)
+// SlimBook Content Filter v1.1
+// Removes ads, stories, suggestions, group/page suggestions from web.facebook.com
 (function() {
     var highlightMode = window.__slimbook_highlight || false;
 
@@ -14,13 +14,14 @@
         el.setAttribute('data-filtered', type);
     }
 
+    // Walk up to find a sizeable parent container
     function findContainer(el, minH, maxH) {
         var parent = el;
-        for (var i = 0; i < 20; i++) {
+        for (var i = 0; i < 25; i++) {
             if (!parent.parentElement) break;
             parent = parent.parentElement;
             var h = parent.getBoundingClientRect().height;
-            if (h >= minH && h <= maxH && parent.getAttribute('data-mcomponent') === 'MContainer') {
+            if (h >= minH && h <= maxH) {
                 return parent;
             }
         }
@@ -28,51 +29,79 @@
     }
 
     function removeUnwanted() {
-        var textAreas = document.querySelectorAll('[data-mcomponent="TextArea"], [data-mcomponent="ServerTextArea"]');
+        // Scan all elements that could contain marker text
+        var els = document.querySelectorAll('[data-mcomponent="TextArea"], [data-mcomponent="ServerTextArea"]');
+        // If MComponent attributes not present, fall back to links and spans
+        if (els.length === 0) {
+            els = document.querySelectorAll('a, span[role="link"], [role="button"]');
+        }
 
-        for (var i = 0; i < textAreas.length; i++) {
-            var el = textAreas[i];
+        for (var i = 0; i < els.length; i++) {
+            var el = els[i];
             if (el.closest('[data-filtered]')) continue;
-            var text = el.innerText || '';
+            var text = el.textContent || '';
             var trimmed = text.trim();
+            var h = el.getBoundingClientRect().height;
 
-            // ADS
-            if (text.indexOf('Ad') !== -1 && text.indexOf('Add ') === -1 &&
-                text.indexOf('Ads Manager') === -1 && el.getBoundingClientRect().height < 25 && text.length < 80) {
-                var container = findContainer(el, 200, 900);
+            // ADS: short element containing "Ad" (not "Add", not "Ads Manager")
+            if (trimmed === 'Ad' || trimmed === 'Sponsored') {
+                var container = findContainer(el, 200, 1500);
                 if (container) hide(container, 'ad');
+                continue;
             }
 
             // STORIES
             if (trimmed === 'Create story') {
-                var container = findContainer(el, 100, 300);
+                var container = findContainer(el, 100, 350);
                 if (container) hide(container, 'stories');
+                continue;
+            }
+
+            // GROUP SUGGESTIONS: element text is exactly "Join"
+            if (trimmed === 'Join') {
+                var container = findContainer(el, 200, 1500);
+                if (container) hide(container, 'group');
+                continue;
+            }
+
+            // PAGE SUGGESTIONS: element text is exactly "Follow"
+            if (trimmed === 'Follow') {
+                var container = findContainer(el, 200, 1500);
+                if (container) hide(container, 'page');
+                continue;
             }
 
             // SUGGESTIONS
             if (trimmed === 'People you may know' || trimmed === 'Suggested for you') {
                 var container = findContainer(el, 200, 600);
                 if (container) hide(container, 'suggestion');
+                continue;
+            }
+
+            // INTEREST PROMPTS
+            if (trimmed === 'Are you interested in this post?') {
+                var container = findContainer(el, 50, 300);
+                if (container) hide(container, 'interest');
+                continue;
             }
 
             // OPEN APP BANNER
             if (trimmed === 'Open app') {
-                var parent = el;
-                for (var j = 0; j < 3; j++) {
-                    if (parent.parentElement) parent = parent.parentElement;
-                }
-                hide(parent, 'banner');
+                var container = findContainer(el, 30, 200);
+                if (container) hide(container, 'banner');
+                continue;
             }
         }
 
-        // Also catch horizontal story scrollers
-        var scrollers = document.querySelectorAll('[data-is-h-scrollable="true"]');
-        for (var i = 0; i < scrollers.length; i++) {
-            var scroller = scrollers[i];
-            if (scroller.closest('[data-filtered]')) continue;
-            if (scroller.innerText && scroller.innerText.indexOf('Create story') !== -1 &&
-                scroller.getBoundingClientRect().height < 450) {
-                hide(scroller, 'stories');
+        // Also scan by aria-label which WebLite uses
+        var labeled = document.querySelectorAll('[aria-label*="Sponsored"], [aria-label*="Join group"], [aria-label*="Follow"]');
+        for (var i = 0; i < labeled.length; i++) {
+            var el = labeled[i];
+            if (el.closest('[data-filtered]')) continue;
+            var label = el.getAttribute('aria-label') || '';
+            if (label.indexOf('Sponsored') !== -1) {
+                var container = findContainer(el, 200, 1500);
+                if (container) hide(container, 'ad');
             }
         }
 
@@ -80,6 +109,8 @@
             ads: document.querySelectorAll('[data-filtered="ad"]').length,
             stories: document.querySelectorAll('[data-filtered="stories"]').length,
             suggestions: document.querySelectorAll('[data-filtered="suggestion"]').length,
+            groups: document.querySelectorAll('[data-filtered="group"]').length,
+            pages: document.querySelectorAll('[data-filtered="page"]').length,
             banners: document.querySelectorAll('[data-filtered="banner"]').length
         };
 
@@ -87,13 +118,56 @@
         return stats;
     }
 
-    removeUnwanted();
-    var observer = new MutationObserver(function() { removeUnwanted(); });
+    // Run after a short delay to let WebSocket content render
+    setTimeout(removeUnwanted, 1000);
+    setTimeout(removeUnwanted, 3000);
+
+    var observer = new MutationObserver(function() {
+        setTimeout(removeUnwanted, 100);
+    });
     observer.observe(document.body, { childList: true, subtree: true });
+
     window.__slimbook_filter = removeUnwanted;
+    window.__slimbook_dump = function() {
+        // Dump info about elements containing "Join" or "Follow"
+        var all = document.querySelectorAll('*');
+        var results = [];
+        for (var i = 0; i < all.length; i++) {
+            var el = all[i];
+            // Only leaf-ish elements with short text
+            if (el.children.length > 3) continue;
+            var text = el.textContent?.trim() || '';
+            if ((text === 'Join' || text === 'Follow' || text === 'Ad' || text === 'Sponsored' ||
+                 text.indexOf('· Join') !== -1 || text.indexOf('· Follow') !== -1) && text.length < 200) {
+                var rect = el.getBoundingClientRect();
+                // Walk up 5 parents to show structure
+                var parents = [];
+                var p = el;
+                for (var j = 0; j < 8; j++) {
+                    if (!p.parentElement) break;
+                    p = p.parentElement;
+                    var pr = p.getBoundingClientRect();
+                    parents.push(p.tagName + '.' + (p.className || '').substring(0,30) +
+                        '[h=' + Math.round(pr.height) + ']' +
+                        (p.getAttribute('data-mcomponent') ? ' mc=' + p.getAttribute('data-mcomponent') : '') +
+                        (p.getAttribute('role') ? ' role=' + p.getAttribute('role') : ''));
+                }
+                results.push({
+                    text: text.substring(0, 80),
+                    tag: el.tagName,
+                    class: (el.className || '').substring(0, 40),
+                    role: el.getAttribute('role'),
+                    h: Math.round(rect.height),
+                    w: Math.round(rect.width),
+                    parents: parents
+                });
+            }
+        }
+        console.log('SLIMBOOK_DUMP:' + JSON.stringify(results, null, 0));
+        return results;
+    };
     window.__slimbook_setHighlight = function(on) {
         window.__slimbook_highlight = on;
-        // Reset and re-apply
         var filtered = document.querySelectorAll('[data-filtered]');
         for (var i = 0; i < filtered.length; i++) {
             filtered[i].removeAttribute('data-filtered');
