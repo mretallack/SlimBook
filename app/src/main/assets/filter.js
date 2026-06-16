@@ -43,6 +43,10 @@
     }
 
     function removeUnwanted() {
+        // Only filter on the home feed
+        var path = window.location.pathname;
+        if (path !== '/' && path !== '/home.php' && path !== '/index.php') return;
+
         // Scan all elements that could contain marker text
         var els = document.querySelectorAll('[data-mcomponent="TextArea"], [data-mcomponent="ServerTextArea"]');
         // If MComponent attributes not present, fall back to links and spans
