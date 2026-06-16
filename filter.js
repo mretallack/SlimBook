@@ -62,7 +62,9 @@
             var h = el.getBoundingClientRect().height;
 
             // ADS: short element containing "Ad" (not "Add", not "Ads Manager")
-            if (trimmed === 'Ad' || trimmed === 'Sponsored') {
+            if (trimmed === 'Ad' || trimmed === 'Sponsored' ||
+                (trimmed.indexOf('Ad') !== -1 && trimmed.length < 20 &&
+                 trimmed.indexOf('Add') === -1 && trimmed.indexOf('Ads') === -1)) {
                 var container = findContainer(el, 200, 1500);
                 if (container) hide(container, 'ad');
                 continue;
