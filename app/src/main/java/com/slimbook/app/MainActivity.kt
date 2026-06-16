@@ -65,14 +65,19 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
+                val scheme = request.url.scheme ?: ""
+                // Redirect fb-messenger:// to web messages
+                if (scheme == "fb-messenger" || scheme == "fb") {
+                    view.loadUrl("https://web.facebook.com/messages/")
+                    return true
+                }
                 return if (isFacebookUrl(url)) {
                     false
                 } else {
                     try {
                         startActivity(Intent(Intent.ACTION_VIEW, request.url))
                     } catch (_: Exception) {
-                        // No app to handle (e.g. fb-messenger://), load in WebView
-                        view.loadUrl(url.replace("fb-messenger://", "https://web.facebook.com/messages/"))
+                        // No app to handle, ignore
                     }
                     true
                 }
@@ -176,7 +181,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isFacebookUrl(url: String): Boolean {
-        val host = Uri.parse(url).host ?: return false
+        val host = Uri.parse(url).host ?: ""
+        val scheme = Uri.parse(url).scheme ?: ""
+        // fb-messenger:// and fb:// are internal Facebook schemes
+        if (scheme == "fb-messenger" || scheme == "fb") return true
         return host.endsWith("facebook.com") || host.endsWith("fbcdn.net") || host.endsWith("fb.com")
     }
 
