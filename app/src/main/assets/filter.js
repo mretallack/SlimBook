@@ -5,13 +5,43 @@
 
     function hide(el, type) {
         if (!el || el.getAttribute('data-filtered')) return;
+        // Log what's being filtered
+        var preview = (el.innerText || '').substring(0, 80).replace(/\n/g, ' ');
+        console.log('SLIMBOOK_HIDE:' + type + ':hl=' + highlightMode + ':' + preview);
         if (highlightMode) {
             el.style.outline = '3px solid red';
             el.style.opacity = '0.4';
+            el.style.position = 'relative';
+            var label = document.createElement('div');
+            label.textContent = type.toUpperCase();
+            label.style.cssText = 'position:absolute;top:0;left:0;background:red;color:white;font-size:11px;padding:2px 6px;z-index:9999;font-weight:bold;border-radius:0 0 4px 0;';
+            el.appendChild(label);
         } else {
             el.style.setProperty('display', 'none', 'important');
-            // Also try to remove the element from flow entirely
             el.setAttribute('hidden', '');
+            // Collapse parent wrappers that would leave grey gaps
+            var parent = el.parentElement;
+            for (var i = 0; i < 5; i++) {
+                if (!parent) break;
+                // If parent has no other visible children, collapse it too
+                var hasVisibleSibling = false;
+                for (var j = 0; j < parent.children.length; j++) {
+                    var sib = parent.children[j];
+                    if (sib !== el && !sib.getAttribute('data-filtered') &&
+                        !sib.hasAttribute('hidden') &&
+                        sib.offsetHeight > 0) {
+                        hasVisibleSibling = true;
+                        break;
+                    }
+                }
+                if (!hasVisibleSibling) {
+                    parent.style.setProperty('display', 'none', 'important');
+                    parent.setAttribute('hidden', '');
+                    parent = parent.parentElement;
+                } else {
+                    break;
+                }
+            }
         }
         el.setAttribute('data-filtered', type);
     }
@@ -90,7 +120,31 @@
         return -1;
     }
 
+    // Determine if a container is a suggestion card vs a real post.
+    // Real posts have Like/Comment/Share interaction buttons.
+    // Suggestions are simple cards with just an action button and no engagement row.
+    function isSuggestionCard(container) {
+        var text = container.innerText || '';
+        // Real posts have engagement actions
+        var hasLike = text.indexOf('Like') !== -1 && text.indexOf('Comment') !== -1;
+        if (hasLike) return false;
+        // Real posts have reaction/comment/share icons (spans with single PUA chars near bottom)
+        var ariaLabels = container.querySelectorAll('[aria-label]');
+        for (var i = 0; i < ariaLabels.length; i++) {
+            var label = ariaLabels[i].getAttribute('aria-label') || '';
+            if (label.indexOf('Like') !== -1 || label.indexOf('Comment') !== -1 ||
+                label.indexOf('Share') !== -1 || label.indexOf('React') !== -1) {
+                return false;
+            }
+        }
+        // No engagement row found — it's a suggestion
+        return true;
+    }
+
     function removeUnwanted() {
+        // Always read from window in case script was re-injected
+        highlightMode = window.__slimbook_highlight || false;
+
         // Only filter on the home feed
         var path = window.location.pathname;
         if (path !== '/' && path !== '/home.php' && path !== '/index.php') return;
@@ -153,17 +207,26 @@
                 continue;
             }
 
-            // GROUP SUGGESTIONS: element text is exactly "Join"
+            // GROUP SUGGESTIONS: "Join" but not inside shared content within a real post
             if (trimmed === 'Join') {
-                var container = findContainer(el, 200, 1500);
-                if (container) hide(container, 'group');
+                var innerContainer = findContainer(el, 100, 800);
+                var outerContainer = findContainer(el, 200, 4000);
+                // If both exist and are different, the Join is in a nested card — skip
+                if (outerContainer && innerContainer && innerContainer !== outerContainer) {
+                    continue;
+                }
+                if (outerContainer) hide(outerContainer, 'group');
                 continue;
             }
 
-            // PAGE SUGGESTIONS: element text is exactly "Follow"
+            // PAGE SUGGESTIONS: "Follow" but not inside shared content within a real post
             if (trimmed === 'Follow') {
-                var container = findContainer(el, 200, 1500);
-                if (container) hide(container, 'page');
+                var innerContainer = findContainer(el, 100, 800);
+                var outerContainer = findContainer(el, 200, 4000);
+                if (outerContainer && innerContainer && innerContainer !== outerContainer) {
+                    continue;
+                }
+                if (outerContainer) hide(outerContainer, 'page');
                 continue;
             }
 
@@ -355,7 +418,18 @@
             filtered[i].style.display = '';
             filtered[i].style.outline = '';
             filtered[i].style.opacity = '';
+            filtered[i].style.position = '';
+            filtered[i].removeAttribute('hidden');
         }
+        // Restore any parents we collapsed
+        var hidden = document.querySelectorAll('[hidden]');
+        for (var i = 0; i < hidden.length; i++) {
+            hidden[i].style.display = '';
+            hidden[i].removeAttribute('hidden');
+        }
+        // Remove highlight labels
+        var labels = document.querySelectorAll('[data-filtered] div, div[style*="z-index:9999"]');
+        // Simpler: just re-run filter with new mode
         highlightMode = on;
         removeUnwanted();
     };
