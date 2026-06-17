@@ -1,8 +1,11 @@
 package com.slimbook.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.util.Log
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.webkit.*
@@ -10,8 +13,12 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.work.*
 import kotlinx.coroutines.*
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -45,7 +52,81 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         setupSwipeRefresh()
         setupStatsBadge()
+        requestNotificationPermission()
+        NotificationWorker.createChannel(this)
+        authorDb.setLastNotifCount(0) // Clear stale count on open
+        (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(NotificationWorker.NOTIFICATION_ID)
+        scheduleNotificationWorker()
         loadFilter()
+        handleNotificationIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.let { handleNotificationIntent(it) }
+    }
+
+    private fun handleNotificationIntent(intent: Intent) {
+        if (intent.getBooleanExtra("open_notifications", false)) {
+            webView.postDelayed({
+                webView.loadUrl("https://web.facebook.com/notifications")
+            }, 500)
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 100)
+        }
+    }
+
+    private fun scheduleNotificationWorker() {
+        val minutes = authorDb.getPollIntervalMinutes()
+        if (minutes <= 0) {
+            WorkManager.getInstance(this).cancelUniqueWork("fb_notif_poll")
+            return
+        }
+        val request = PeriodicWorkRequestBuilder<NotificationWorker>(
+            minutes.toLong(), TimeUnit.MINUTES
+        ).setConstraints(
+            Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        ).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "fb_notif_poll", ExistingPeriodicWorkPolicy.UPDATE, request
+        )
+        Log.d("SlimBook", "Notification polling scheduled: every ${minutes}m")
+    }
+
+    private fun updateNotification(count: Int) {
+        // Cache the count for the background worker to use
+        authorDb.setLastNotifCount(count)
+        Log.d("SlimBook", "Notification count from page: $count")
+
+        if (authorDb.getPollIntervalMinutes() <= 0) return
+
+        val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+        if (count > 0) {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                putExtra("open_notifications", true)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pi = android.app.PendingIntent.getActivity(
+                this, 0, intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            val notification = androidx.core.app.NotificationCompat.Builder(this, NotificationWorker.CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("Facebook")
+                .setContentText("You have $count notification${if (count > 1) "s" else ""}")
+                .setContentIntent(pi)
+                .setAutoCancel(true)
+                .build()
+            nm.notify(NotificationWorker.NOTIFICATION_ID, notification)
+        } else {
+            nm.cancel(NotificationWorker.NOTIFICATION_ID)
+        }
     }
 
     private fun setupCookies() {
@@ -64,7 +145,10 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
-        webView.addJavascriptInterface(SlimBookBridge(authorDb), "Android")
+        webView.addJavascriptInterface(SlimBookBridge(authorDb) { count ->
+            // Only cache, don't post notification from foreground
+            Log.d("SlimBook", "Notification count from page: $count")
+        }, "Android")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -164,11 +248,23 @@ class MainActivity : AppCompatActivity() {
             240 -> "10 days"
             else -> "${authorDb.getMaxAgeHours()}h"
         }
+        val pollLabel = when (authorDb.getPollIntervalMinutes()) {
+            0 -> "off"
+            15 -> "15 min"
+            30 -> "30 min"
+            60 -> "1 hour"
+            120 -> "2 hours"
+            360 -> "6 hours"
+            720 -> "12 hours"
+            else -> "${authorDb.getPollIntervalMinutes()}m"
+        }
         val items = arrayOf(
             if (highlightMode) "Disable highlight mode" else "Enable highlight mode",
             "Manage authors (${authorDb.getAllAuthors().size})",
             "Manage groups (${authorDb.getAllGroups().size})",
             "Post age filter ($ageLabel)",
+            "Notification poll ($pollLabel)",
+            "Remote filter (${if (authorDb.isRemoteFilterEnabled()) "on" else "off"})",
             "View log (${logMessages.size} entries)",
             "Dump DOM",
             "Re-run filter"
@@ -181,9 +277,11 @@ class MainActivity : AppCompatActivity() {
                     1 -> showAuthorList()
                     2 -> showGroupList()
                     3 -> showAgeFilter()
-                    4 -> showLog()
-                    5 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
-                    6 -> injectFilter()
+                    4 -> showPollInterval()
+                    5 -> toggleRemoteFilter()
+                    6 -> showLog()
+                    7 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
+                    8 -> injectFilter()
                 }
             }
             .show()
@@ -290,6 +388,28 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Age filter: ${options[which]}", Toast.LENGTH_SHORT).show()
             }
             .show()
+    }
+
+    private fun showPollInterval() {
+        val options = arrayOf("Off", "15 min", "30 min", "1 hour", "2 hours", "6 hours", "12 hours")
+        val values = intArrayOf(0, 15, 30, 60, 120, 360, 720)
+        val current = values.indexOf(authorDb.getPollIntervalMinutes()).coerceAtLeast(0)
+
+        AlertDialog.Builder(this)
+            .setTitle("Check notifications every:")
+            .setSingleChoiceItems(options, current) { dialog, which ->
+                authorDb.setPollIntervalMinutes(values[which])
+                scheduleNotificationWorker()
+                dialog.dismiss()
+                Toast.makeText(this, "Notification poll: ${options[which]}", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun toggleRemoteFilter() {
+        val enabled = !authorDb.isRemoteFilterEnabled()
+        authorDb.setRemoteFilterEnabled(enabled)
+        Toast.makeText(this, "Remote filter: ${if (enabled) "on" else "off"} (restart to apply)", Toast.LENGTH_SHORT).show()
     }
 
     private fun isFacebookUrl(url: String): Boolean {

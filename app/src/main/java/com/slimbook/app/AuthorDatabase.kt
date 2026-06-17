@@ -57,4 +57,28 @@ class AuthorDatabase(context: Context) {
     fun setMaxAgeHours(hours: Int) {
         settingsPrefs.edit().putInt("max_age_hours", hours).apply()
     }
+
+    fun getPollIntervalMinutes(): Int {
+        return settingsPrefs.getInt("poll_interval_minutes", 0) // 0 = off
+    }
+
+    fun setPollIntervalMinutes(minutes: Int) {
+        settingsPrefs.edit().putInt("poll_interval_minutes", minutes).apply()
+    }
+
+    fun getLastNotifCount(): Int {
+        return settingsPrefs.getInt("last_notif_count", 0)
+    }
+
+    fun setLastNotifCount(count: Int) {
+        settingsPrefs.edit().putInt("last_notif_count", count).apply()
+    }
+
+    fun isRemoteFilterEnabled(): Boolean {
+        return settingsPrefs.getBoolean("remote_filter", false)
+    }
+
+    fun setRemoteFilterEnabled(enabled: Boolean) {
+        settingsPrefs.edit().putBoolean("remote_filter", enabled).apply()
+    }
 }

@@ -2,7 +2,7 @@ package com.slimbook.app
 
 import android.webkit.JavascriptInterface
 
-class SlimBookBridge(private val db: AuthorDatabase) {
+class SlimBookBridge(private val db: AuthorDatabase, private val onNotifCount: (Int) -> Unit) {
 
     @JavascriptInterface
     fun reportAuthor(name: String) {
@@ -22,5 +22,11 @@ class SlimBookBridge(private val db: AuthorDatabase) {
     @JavascriptInterface
     fun getMaxAgeHours(): Int {
         return db.getMaxAgeHours()
+    }
+
+    @JavascriptInterface
+    fun reportNotifCount(count: String) {
+        val n = count.replace("+", "").toIntOrNull() ?: 0
+        onNotifCount(n)
     }
 }

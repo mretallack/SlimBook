@@ -217,7 +217,7 @@
                 if (name.length < 3 || name.length > 80 || lh <= 0 || lh > 25) continue;
 
                 // Find the post container for this link
-                var postContainer = findContainer(link, 200, 2000);
+                var postContainer = findContainer(link, 200, 4000);
                 if (!postContainer || postContainer.getAttribute('data-author-checked')) continue;
 
                 // Find all role=link spans in this post container
@@ -282,7 +282,7 @@
                     if (spText.length < 2 || spText.length > 60) continue;
                     if (spText.match(/\d+[hdw]/) || spText.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d/i) || spText.match(/\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i)) {
                         // Found a timestamp in an unchecked post
-                        var postC = findContainer(sp, 200, 2000);
+                        var postC = findContainer(sp, 200, 4000);
                         if (postC && !postC.getAttribute('data-age-checked') && !postC.getAttribute('data-filtered')) {
                             postC.setAttribute('data-age-checked', '1');
                             var age = getPostAgeHours(postC);
@@ -307,6 +307,7 @@
         };
 
         console.log('SLIMBOOK_STATS:' + JSON.stringify(stats));
+
         return stats;
     }
 
