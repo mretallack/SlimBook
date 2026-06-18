@@ -207,26 +207,30 @@
                 continue;
             }
 
-            // GROUP SUGGESTIONS: "Join" but not inside shared content within a real post
+            // GROUP SUGGESTIONS / posts from unjoined groups
             if (trimmed === 'Join') {
-                var innerContainer = findContainer(el, 100, 800);
-                var outerContainer = findContainer(el, 200, 4000);
-                // If both exist and are different, the Join is in a nested card — skip
-                if (outerContainer && innerContainer && innerContainer !== outerContainer) {
-                    continue;
+                var container = findContainer(el, 200, 4000);
+                if (container) {
+                    var elTop = el.getBoundingClientRect().top;
+                    var containerTop = container.getBoundingClientRect().top;
+                    // Only filter if Join is in the top 60px (main header) of container
+                    if (elTop - containerTop < 60) {
+                        hide(container, 'group');
+                    }
                 }
-                if (outerContainer) hide(outerContainer, 'group');
                 continue;
             }
 
-            // PAGE SUGGESTIONS: "Follow" but not inside shared content within a real post
-            if (trimmed === 'Follow') {
-                var innerContainer = findContainer(el, 100, 800);
-                var outerContainer = findContainer(el, 200, 4000);
-                if (outerContainer && innerContainer && innerContainer !== outerContainer) {
-                    continue;
+            // PAGE SUGGESTIONS / posts from unfollowed pages
+            if (trimmed === 'Follow' || trimmed === '· Follow' || trimmed === 'Follow ·') {
+                var container = findContainer(el, 200, 4000);
+                if (container) {
+                    var elTop = el.getBoundingClientRect().top;
+                    var containerTop = container.getBoundingClientRect().top;
+                    if (elTop - containerTop < 60) {
+                        hide(container, 'page');
+                    }
                 }
-                if (outerContainer) hide(outerContainer, 'page');
                 continue;
             }
 
