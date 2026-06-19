@@ -388,6 +388,7 @@
     observer.observe(document.body, { childList: true, subtree: true });
 
     window.__slimbook_filter = removeUnwanted;
+
     window.__slimbook_dump = function() {
         // Dump all short text elements to understand the post structure
         var all = document.querySelectorAll('[role="link"], a, span');

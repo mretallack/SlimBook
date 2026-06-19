@@ -37,6 +37,25 @@ class MainActivity : AppCompatActivity() {
     private var filterJs: String = ""
     private var highlightMode = false
     private val logMessages = mutableListOf<String>()
+    private var fileUploadCallback: android.webkit.ValueCallback<Array<android.net.Uri>>? = null
+    private val filePickerLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uris = if (result.resultCode == RESULT_OK && result.data != null) {
+            val data = result.data!!
+            if (data.clipData != null) {
+                val count = data.clipData!!.itemCount
+                Array(count) { i -> data.clipData!!.getItemAt(i).uri }
+            } else if (data.data != null) {
+                arrayOf(data.data!!)
+            } else null
+        } else null
+        if (uris != null && uris.isNotEmpty()) {
+            Toast.makeText(this, "Photo uploaded", Toast.LENGTH_SHORT).show()
+        }
+        fileUploadCallback?.onReceiveValue(uris)
+        fileUploadCallback = null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,7 +76,12 @@ class MainActivity : AppCompatActivity() {
         authorDb.setLastNotifCount(0) // Clear stale count on open
         (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(NotificationService.NOTIFICATION_ID)
         scheduleNotificationWorker()
-        loadFilter()
+        if (savedInstanceState != null) {
+            webView.restoreState(savedInstanceState)
+            CoroutineScope(Dispatchers.IO).launch { filterJs = filterManager.getFilterJs() }
+        } else {
+            loadFilter()
+        }
         handleNotificationIntent(intent)
     }
 
@@ -145,6 +169,7 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             mediaPlaybackRequiresUserGesture = true
         }
+        webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
 
         webView.addJavascriptInterface(SlimBookBridge(authorDb) { count ->
             // Only cache, don't post notification from foreground
@@ -199,6 +224,18 @@ class MainActivity : AppCompatActivity() {
                 val url = request.url.toString()
                 val scheme = request.url.scheme ?: ""
                 Log.d("SlimBook", "NAV: $url")
+                // Handle intent:// URLs for messenger share
+                if (scheme == "intent" && url.contains("fb-messenger")) {
+                    val linkMatch = Regex("link=([^&]+)").find(url)
+                    val link = linkMatch?.groupValues?.get(1)?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: ""
+                    view.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    if (link.isNotEmpty()) {
+                        view.loadUrl("https://www.messenger.com/new?link=${java.net.URLEncoder.encode(link, "UTF-8")}")
+                    } else {
+                        view.loadUrl("https://www.messenger.com/")
+                    }
+                    return true
+                }
                 // Redirect fb-messenger:// and messages URLs to messenger.com (like SlimSocial)
                 if (scheme == "fb-messenger" || scheme == "fb" || url.contains("facebook.com/messages")) {
                     view.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -241,6 +278,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: WebView,
+                filePathCallback: android.webkit.ValueCallback<Array<android.net.Uri>>,
+                fileChooserParams: WebChromeClient.FileChooserParams
+            ): Boolean {
+                fileUploadCallback?.onReceiveValue(null)
+                fileUploadCallback = filePathCallback
+                val intent = fileChooserParams.createIntent()
+                try {
+                    filePickerLauncher.launch(intent)
+                } catch (e: Exception) {
+                    fileUploadCallback = null
+                    return false
+                }
+                return true
+            }
+
             override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
                 val text = msg.message()
                 Log.d("SlimBook", text)
@@ -572,5 +626,15 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         CookieManager.getInstance().flush()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        webView.saveState(outState)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        webView.restoreState(savedInstanceState)
     }
 }
