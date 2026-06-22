@@ -8,8 +8,9 @@ SlimBook loads Facebook's lightweight WebLite interface and automatically remove
 
 - **Ads** and sponsored posts
 - **Stories** section
-- **Group suggestions** (posts with "Join")
-- **Page suggestions** (posts with "Follow")
+- **Posts from unfollowed pages** (header shows "Follow")
+- **Posts from unjoined groups** (header shows "Join")
+- **Posts from non-friends** (header shows "Add friend")
 - **"People you may know"** suggestions
 - **"Open app"** banners
 - **"Are you interested?"** prompts
