@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Shield shape -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,22 L76,30 L76,56 C76,70 66,80 54,86 C42,80 32,70 32,56 L32,30 Z"/>
+    <!-- Book pages inside shield -->
+    <path
+        android:fillColor="#1877F2"
+        android:pathData="M54,36 L54,74 M44,40 L54,36 L64,40 M44,40 L44,70 C44,72 48,74 54,74 C60,74 64,72 64,70 L64,40"
+        android:strokeWidth="2.5"
+        android:strokeColor="#1877F2"
+        android:fillType="nonZero"/>
+    <!-- Left page -->
+    <path
+        android:fillColor="#1877F2"
+        android:fillAlpha="0.3"
+        android:pathData="M44,40 L54,36 L54,74 C48,74 44,72 44,70 Z"/>
+    <!-- Right page -->
+    <path
+        android:fillColor="#1877F2"
+        android:fillAlpha="0.5"
+        android:pathData="M64,40 L54,36 L54,74 C60,74 64,72 64,70 Z"/>
+    <!-- Filter lines on right page -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M57,46 L61,46 M57,50 L61,50 M57,54 L60,54"/>
+</vector>

@@ -234,6 +234,19 @@
                 continue;
             }
 
+            // NON-FRIENDS: posts from people you're not friends with
+            if (trimmed === 'Add friend') {
+                var container = findContainer(el, 200, 4000);
+                if (container) {
+                    var elTop = el.getBoundingClientRect().top;
+                    var containerTop = container.getBoundingClientRect().top;
+                    if (elTop - containerTop < 60) {
+                        hide(container, 'nonfriend');
+                    }
+                }
+                continue;
+            }
+
             // SUGGESTIONS
             var lower = trimmed.toLowerCase();
             if (lower === 'people you may know' || lower === 'suggested for you') {
