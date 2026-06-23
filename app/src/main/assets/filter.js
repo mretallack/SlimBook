@@ -391,12 +391,49 @@
         return stats;
     }
 
+    // Pre-filter hidden content so it never flashes when revealed
+    function preFilter() {
+        var hidden = document.querySelectorAll('[style*="display: none"], [style*="display:none"]');
+        for (var i = 0; i < hidden.length; i++) {
+            var el = hidden[i];
+            if (el.getAttribute('data-filtered') || el.innerHTML.length < 50) continue;
+            var text = el.textContent || '';
+            // Check for Follow/Join/Add friend in header-like position (first 200 chars)
+            var headerText = text.substring(0, 200);
+            if (headerText.indexOf('Follow') !== -1 && headerText.indexOf('Follow') < 100) {
+                hide(el, 'page');
+            } else if (headerText.indexOf('Join') !== -1 && headerText.indexOf('Join') < 100) {
+                hide(el, 'group');
+            } else if (headerText.indexOf('Add friend') !== -1 && headerText.indexOf('Add friend') < 100) {
+                hide(el, 'nonfriend');
+            } else if (headerText.indexOf('Sponsored') !== -1 || headerText.indexOf('Ad') !== -1 && headerText.length < 80) {
+                hide(el, 'ad');
+            }
+            // Age filter: look for timestamps in the text
+            if (typeof Android !== 'undefined' && Android.getMaxAgeHours) {
+                var maxAge = Android.getMaxAgeHours();
+                if (maxAge > 0) {
+                    var dayMatch = headerText.match(/(\d+)d/);
+                    var weekMatch = headerText.match(/(\d+)w/);
+                    if (dayMatch && parseInt(dayMatch[1]) * 24 > maxAge) {
+                        hide(el, 'old');
+                    } else if (weekMatch && parseInt(weekMatch[1]) * 168 > maxAge) {
+                        hide(el, 'old');
+                    }
+                }
+            }
+        }
+    }
+
     // Run after a short delay to let WebSocket content render
     setTimeout(removeUnwanted, 1000);
     setTimeout(removeUnwanted, 3000);
+    setTimeout(preFilter, 2000);
+    setTimeout(preFilter, 5000);
 
     var observer = new MutationObserver(function() {
         setTimeout(removeUnwanted, 100);
+        setTimeout(preFilter, 200);
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
