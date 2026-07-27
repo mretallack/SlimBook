@@ -1,0 +1,19 @@
+SlimBook provides a clean, ad-free Facebook feed by wrapping Facebook's lightweight mobile web client with real-time content filtering.
+
+Features:
+• Removes ads, sponsored posts, stories, and reels
+• Hides posts from unfollowed pages and unjoined groups
+• Filters "People you may know" and other suggestions
+• Post age filter — hide posts older than a chosen threshold
+• Author and group management — block specific sources
+• Background notification polling
+• Messenger support via messenger.com
+• Photo upload support
+• Video autoplay disabled (tap to play)
+• Pull-to-refresh
+• External links open in system browser
+• Persistent login across app restarts
+
+SlimBook uses Facebook's WebLite interface which delivers lightweight server-rendered HTML. A small JavaScript filter identifies and hides unwanted content by text patterns, running continuously via MutationObserver to catch new content as it arrives.
+
+No tracking. No analytics. No data sent to third parties. All communication is between your device and Facebook's servers.

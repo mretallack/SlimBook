@@ -8,7 +8,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.slimbook.app"
+        applicationId = "uk.org.retallack.slimbook"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

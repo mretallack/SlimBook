@@ -1,0 +1,10 @@
+Initial release.
+
+• Real-time ad and sponsored content filtering
+• Page, group, and non-friend post filtering
+• Post age filter
+• Author and group management
+• Background notification polling
+• Messenger support
+• Photo upload support
+• Debug tools (highlight mode, DOM dump, console log)
