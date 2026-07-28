@@ -1,4 +1,4 @@
-package com.slimbook.app
+package uk.org.retallack.slimbook
 
 import android.Manifest
 import android.content.Intent
@@ -626,7 +626,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        webView.onPause()
+        webView.pauseTimers()
         CookieManager.getInstance().flush()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webView.onResume()
+        webView.resumeTimers()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

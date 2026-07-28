@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.slimbook.app"
+    namespace = "uk.org.retallack.slimbook"
     compileSdk = 34
 
     defaultConfig {

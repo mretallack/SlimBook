@@ -1,4 +1,4 @@
-package com.slimbook.app
+package uk.org.retallack.slimbook
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -79,6 +79,9 @@ class NotificationWorker(
     @SuppressLint("SetJavaScriptEnabled")
     private suspend fun checkNotifications(): Int = suspendCancellableCoroutine { cont ->
         Handler(Looper.getMainLooper()).post {
+            // Ensure JS timers are running — main activity may have called pauseTimers() (global)
+            android.webkit.WebView(applicationContext).resumeTimers()
+
             var wm: WindowManager? = null
             val wv = WebView(applicationContext).apply {
                 visibility = View.GONE
@@ -101,12 +104,14 @@ class NotificationWorker(
                         Handler(Looper.getMainLooper()).post {
                             wm?.removeView(wv)
                             wv.destroy()
+                            wv.pauseTimers()
                         }
                         if (cont.isActive) cont.resume(total)
                     } catch (e: Exception) {
                         Handler(Looper.getMainLooper()).post {
                             wm?.removeView(wv)
                             wv.destroy()
+                            wv.pauseTimers()
                         }
                         if (cont.isActive) cont.resume(-1)
                     }

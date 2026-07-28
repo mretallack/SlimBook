@@ -1,4 +1,4 @@
-package com.slimbook.app
+package uk.org.retallack.slimbook
 
 import android.content.Context
 import android.content.SharedPreferences
