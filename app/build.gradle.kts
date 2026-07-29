@@ -15,9 +15,19 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getProperty("user.home") + "/.android/keystores/slimbook-release.jks")
+            storePassword = System.getenv("SLIMBOOK_KEYSTORE_PASSWORD") ?: "slimbook-release"
+            keyAlias = "slimbook"
+            keyPassword = System.getenv("SLIMBOOK_KEY_PASSWORD") ?: "slimbook-release"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
