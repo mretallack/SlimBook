@@ -597,9 +597,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleRemoteFilter() {
-        val enabled = !authorDb.isRemoteFilterEnabled()
-        authorDb.setRemoteFilterEnabled(enabled)
-        Toast.makeText(this, "Remote filter: ${if (enabled) "on" else "off"} (restart to apply)", Toast.LENGTH_SHORT).show()
+        val currentlyEnabled = authorDb.isRemoteFilterEnabled()
+        if (currentlyEnabled) {
+            // Turning off - no confirmation needed
+            authorDb.setRemoteFilterEnabled(false)
+            Toast.makeText(this, "Remote filter: off (restart to apply)", Toast.LENGTH_SHORT).show()
+        } else {
+            // Turning on - show confirmation dialog
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Enable remote filter?")
+                .setMessage(
+                    "This will download and execute filter.js from GitHub " +
+                    "(https://github.com/mretallack/SlimBook) each time the app starts.\n\n" +
+                    "The script runs inside the WebView to filter Facebook content. " +
+                    "When disabled, a bundled copy of the filter is used instead."
+                )
+                .setPositiveButton("Enable") { _, _ ->
+                    authorDb.setRemoteFilterEnabled(true)
+                    Toast.makeText(this, "Remote filter: on (restart to apply)", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
     }
 
     private fun isFacebookUrl(url: String): Boolean {

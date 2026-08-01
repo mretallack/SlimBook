@@ -98,11 +98,30 @@ SlimBook injects a small JavaScript filter after each page load. The filter iden
 
 ## Remote filter updates
 
-The filter rules live in [`filter.js`](filter.js) at the repo root. Remote fetching is **disabled by default** (uses the bundled filter). To enable:
+The content filter logic lives in [`filter.js`](filter.js) at the repo root. A copy is **bundled inside the APK** (`assets/filter.js`) and used by default — no network requests are made beyond Facebook itself.
 
-1. Long-press shield → "Remote filter (off)" → toggles to on
-2. Restart the app
-3. On start, SlimBook will fetch the latest `filter.js` from GitHub
+### What the remote filter does
+
+When enabled, the app downloads `filter.js` from this GitHub repository on each app start:
+
+```
+https://raw.githubusercontent.com/mretallack/SlimBook/main/filter.js
+```
+
+The downloaded script is then **executed inside the WebView** to filter Facebook content. This allows filter rules to be updated without releasing a new APK.
+
+### Privacy implications
+
+- **Disabled (default):** All communication is between your device and Facebook's servers only. The bundled filter is used.
+- **Enabled:** The app additionally connects to GitHub (`raw.githubusercontent.com`) to fetch the filter script. The script runs in the same WebView context as Facebook.
+
+### How to enable
+
+1. Long-press the stats badge → "Remote filter (off)"
+2. A confirmation dialog explains what will happen
+3. Tap "Enable", then restart the app
+
+### Updating filter rules (for maintainers)
 
 To update filter rules without releasing a new APK:
 1. Edit `filter.js`
