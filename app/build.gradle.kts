@@ -18,9 +18,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file(System.getProperty("user.home") + "/.android/keystores/slimbook-release.jks")
-            storePassword = System.getenv("SLIMBOOK_KEYSTORE_PASSWORD") ?: "slimbook-release"
+            storePassword = System.getenv("SLIMBOOK_KEYSTORE_PASSWORD") ?: ""
             keyAlias = "slimbook"
-            keyPassword = System.getenv("SLIMBOOK_KEY_PASSWORD") ?: "slimbook-release"
+            keyPassword = System.getenv("SLIMBOOK_KEY_PASSWORD") ?: ""
         }
     }
 
