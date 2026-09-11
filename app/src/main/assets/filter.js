@@ -163,11 +163,11 @@
             var trimmed = text.trim();
             var h = el.getBoundingClientRect().height;
 
-            // ADS: short element containing "Ad" or starting with "Sponsored"
-            if (trimmed === 'Ad' || trimmed.indexOf('Sponsored') === 0 ||
-                (trimmed.indexOf('Ad') !== -1 && trimmed.length < 20 &&
-                 trimmed.indexOf('Add') === -1 && trimmed.indexOf('Ads') === -1)) {
-                var container = findContainer(el, 200, 1500);
+            // ADS: short element containing "Ad" or containing/starting with "Sponsored" or "Promoted"
+            if (trimmed === 'Ad' || trimmed.indexOf('Sponsored') !== -1 || trimmed.indexOf('Promoted') !== -1 ||
+                (trimmed.indexOf('Ad') !== -1 && trimmed.length < 30 &&
+                 trimmed.indexOf('Add') === -1 && trimmed.indexOf('Ads') === -1 && trimmed.indexOf('Address') === -1)) {
+                var container = findContainer(el, 200, 2000);
                 if (container) hide(container, 'ad');
                 continue;
             }
