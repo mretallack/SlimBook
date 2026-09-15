@@ -222,12 +222,12 @@
             }
 
             // PAGE SUGGESTIONS / posts from unfollowed pages
-            if (trimmed === 'Follow' || trimmed === '· Follow' || trimmed === 'Follow ·') {
+            if (trimmed === 'Follow' || trimmed === '· Follow' || trimmed === 'Follow ·' || trimmed.indexOf('Follow') !== -1 && trimmed.length < 25) {
                 var container = findContainer(el, 200, 4000);
                 if (container) {
                     var elTop = el.getBoundingClientRect().top;
                     var containerTop = container.getBoundingClientRect().top;
-                    if (elTop - containerTop < 60) {
+                    if (elTop - containerTop < 80) {
                         hide(container, 'page');
                     }
                 }
