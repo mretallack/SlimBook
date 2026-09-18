@@ -161,7 +161,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupWebView() {
-        WebView.setWebContentsDebuggingEnabled(true)
+        if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
