@@ -29,4 +29,9 @@ class SlimBookBridge(private val db: AuthorDatabase, private val onNotifCount: (
         val n = count.replace("+", "").toIntOrNull() ?: 0
         onNotifCount(n)
     }
+
+    @JavascriptInterface
+    fun isHideFeedEnabled(): Boolean {
+        return db.isHideFeedEnabled()
+    }
 }
