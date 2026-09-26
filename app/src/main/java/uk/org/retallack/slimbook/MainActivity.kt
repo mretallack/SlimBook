@@ -24,8 +24,22 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val FB_URL = "https://web.facebook.com/"
+        // Desktop UA is the long-standing bypass for Meta's "Get Messenger"
+        // install wall (mobile UAs are walled on every messages host);
+        // the feed stays on the lightweight WebLite mobile UA.
+        private const val MESSENGER_URL = "https://www.messenger.com/"
         private const val MOBILE_UA =
             "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        private const val DESKTOP_UA =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        // Single source of truth for "Get Messenger" install-wall signals,
+        // shared by the JS detector and the Kotlin re-probe below. NOTE:
+        // English-only; non-English sessions will log OK instead of WALL.
+        private val CHAT_WALL_MARKERS = listOf(
+            "get messenger", "conversations are moving", "install the app",
+            "download messenger", "mobile browsers", "use the messenger app",
+            "open in the messenger", "blocked", "unavailable",
+        )
     }
 
     private lateinit var webView: WebView
@@ -36,6 +50,8 @@ class MainActivity : AppCompatActivity() {
 
     private var filterJs: String = ""
     private var highlightMode = false
+    private var isMessengerMode = false
+    private var messengerRedirectPending = false
     private val logMessages = mutableListOf<String>()
     private var fileUploadCallback: android.webkit.ValueCallback<Array<android.net.Uri>>? = null
     private val filePickerLauncher = registerForActivityResult(
@@ -95,6 +111,58 @@ class MainActivity : AppCompatActivity() {
             webView.postDelayed({
                 webView.loadUrl("https://web.facebook.com/notifications")
             }, 500)
+        }
+    }
+
+    private fun isMessagesUrl(url: String): Boolean {
+        return url.contains("/messages")
+    }
+
+    private fun isChatUrl(url: String?): Boolean {
+        return url != null && (url.contains("/messages") || url.contains("messenger.com"))
+    }
+
+    /**
+     * Centralized redirect to the desktop chat stack. The desktop UA must be
+     * set synchronously before loadUrl: the Message tab fires an SPA
+     * navigation that never hits onPageFinished on first click (issue #2),
+     * and the UA has to be desktop before FB's chat bootstrap runs, otherwise
+     * it serves the "Get Messenger" install wall.
+     */
+    private fun redirectToMessenger(view: WebView, target: String = MESSENGER_URL) {
+        // Avoid redirect loops when already on the target page
+        if (view.url == target) {
+            isMessengerMode = true
+            return
+        }
+        isMessengerMode = true
+        messengerRedirectPending = true
+        view.settings.userAgentString = DESKTOP_UA
+        applyMessengerMode()
+        view.loadUrl(target)
+    }
+
+    private fun applyFeedMode() {
+        if (::swipeRefresh.isInitialized) swipeRefresh.isEnabled = true
+        if (::statsBadge.isInitialized) statsBadge.visibility = View.VISIBLE
+        if (::webView.isInitialized) {
+            webView.settings.useWideViewPort = false
+            webView.settings.loadWithOverviewMode = false
+        }
+    }
+
+    /**
+     * Desktop chat layout: disable pull-to-refresh (it steals vertical
+     * scroll and clips the fixed header), enable the overview viewport so
+     * the page scales to phone width, and hide the stats badge so it never
+     * covers the chat composer.
+     */
+    private fun applyMessengerMode() {
+        if (::swipeRefresh.isInitialized) swipeRefresh.isEnabled = false
+        if (::statsBadge.isInitialized) statsBadge.visibility = View.GONE
+        if (::webView.isInitialized) {
+            webView.settings.useWideViewPort = true
+            webView.settings.loadWithOverviewMode = true
         }
     }
 
@@ -182,6 +250,9 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                // Don't touch chat pages: they are WebSocket-heavy and replacing
+                // WebSocket.prototype breaks their transport (issue #2 cut-off).
+                if (isChatUrl(url)) return
                 view.evaluateJavascript("""(function(){
                     if(window.__sb_ws_hooked)return;window.__sb_ws_hooked=true;
                     var orig=WebSocket.prototype.send;
@@ -227,27 +298,42 @@ class MainActivity : AppCompatActivity() {
                 val url = request.url.toString()
                 val scheme = request.url.scheme ?: ""
                 Log.d("SlimBook", "NAV: $url")
+                // Swallow app-store pushes: FB bounces mobile chat users to the
+                // Play Store ("Get Messenger"). Stay in the WebView instead —
+                // going back usually lands on the working chat (FaceSlim trick).
+                if (scheme == "market" || url.contains("play.google.com/store")) {
+                    Log.d("SlimBook", "CHAT_STORE_BLOCK:$url")
+                    if (view.canGoBack()) view.goBack()
+                    return true
+                }
                 // Handle intent:// URLs for messenger share
                 if (scheme == "intent" && url.contains("fb-messenger")) {
                     val linkMatch = Regex("link=([^&]+)").find(url)
                     val link = linkMatch?.groupValues?.get(1)?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: ""
-                    view.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                     if (link.isNotEmpty()) {
-                        view.loadUrl("https://www.messenger.com/new?link=${java.net.URLEncoder.encode(link, "UTF-8")}")
+                        redirectToMessenger(view, "$MESSENGER_URL/new?link=${java.net.URLEncoder.encode(link, "UTF-8")}")
                     } else {
-                        view.loadUrl("https://www.messenger.com/")
+                        redirectToMessenger(view)
                     }
                     return true
                 }
-                // Redirect fb-messenger:// and messages URLs to messenger.com (like SlimSocial)
-                if (scheme == "fb-messenger" || scheme == "fb" || url.contains("facebook.com/messages")) {
-                    view.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    view.loadUrl("https://www.messenger.com/")
+                // Other intent:// URLs (e.g. Play Store intents): stay in app.
+                if (scheme == "intent") {
+                    Log.d("SlimBook", "CHAT_STORE_BLOCK:$url")
                     return true
                 }
-                // Coming back from messenger to facebook - restore mobile UA
-                if (url.contains("www.facebook.com") && !url.contains("/messages") && view.url?.contains("messenger.com") == true) {
+                // Redirect fb-messenger:// and messages URLs to the desktop
+                // chat stack (like SlimSocial).
+                if (scheme == "fb-messenger" || scheme == "fb" || isMessagesUrl(url)) {
+                    redirectToMessenger(view)
+                    return true
+                }
+                // Coming back from chat to facebook - restore mobile UA
+                if (url.contains("facebook.com") && !url.contains("/messages") && isChatUrl(view.url)) {
+                    isMessengerMode = false
+                    messengerRedirectPending = false
                     view.settings.userAgentString = MOBILE_UA
+                    applyFeedMode()
                     view.loadUrl(FB_URL)
                     return true
                 }
@@ -263,17 +349,45 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                super.doUpdateVisitedHistory(view, url, isReload)
+                // Issue #2: the Message tab navigates via the SPA history API,
+                // which never triggers shouldOverrideUrlLoading/onPageFinished
+                // on first click. Catch the history entry instead.
+                Log.d("SlimBook", "HIST: $url reload=$isReload")
+                if (url != null && isMessagesUrl(url) && !isMessengerMode) {
+                    redirectToMessenger(view)
+                }
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 Log.d("SlimBook", "PAGE: $url")
-                // If we ended up on a messages page, redirect to messenger.com
-                if (url.contains("facebook.com/messages")) {
-                    view.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    view.loadUrl("https://www.messenger.com/")
+                // Stay in messenger mode: keep desktop UA + chat layout
+                if (isChatUrl(url)) {
+                    isMessengerMode = true
+                    messengerRedirectPending = false
+                    if (view.settings.userAgentString != DESKTOP_UA) {
+                        view.settings.userAgentString = DESKTOP_UA
+                    }
+                    applyMessengerMode()
+                    swipeRefresh.isRefreshing = false
+                    applyMessengerTweaks(view, url)
                     return
                 }
-                // Restore mobile UA when back on feed
-                if (url.contains("web.facebook.com")) {
+                // A settling Facebook page finishing after a messenger redirect
+                // started (e.g. tapped Message mid-load): swallow it so it can't
+                // reset the desktop UA before the messenger load commits.
+                if (messengerRedirectPending && url.contains("facebook.com")) {
+                    messengerRedirectPending = false
+                    swipeRefresh.isRefreshing = false
+                    return
+                }
+                messengerRedirectPending = false
+                // Restore mobile UA when genuinely back on Facebook
+                if (url.contains("facebook.com")) {
+                    isMessengerMode = false
                     view.settings.userAgentString = MOBILE_UA
+                    applyFeedMode()
                 }
                 swipeRefresh.isRefreshing = false
                 injectFilter()
@@ -333,7 +447,180 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Chat entry point: light chrome-hiding CSS, "Get Messenger" install-wall
+     * detection with an on-page bypass attempt ("continue on web"-style
+     * dismissal), plus the virtualized-grid repair (the grid sometimes mounts
+     * ~100px tall while its navigation pane is full-height, painting ~1.5
+     * rows with no scroll). Detect-and-log only: no cross-host fallback —
+     * the wall markers + probe exist so a future Meta change is diagnosable
+     * from logcat. Everything is session-local and reverts itself if
+     * geometry looks insane.
+     */
+    private fun applyMessengerTweaks(view: WebView, url: String) {
+        val markersJs = CHAT_WALL_MARKERS.joinToString(",") { "'$it'" }
+        view.evaluateJavascript("""
+            (function() {
+                if (window.__sb_chat_tweaked) return;
+                window.__sb_chat_tweaked = true;
+                // NOTE: never hide a[href="/"] or [aria-label="Facebook"] —
+                // that is the header logo linking back to the feed, the only
+                // on-screen path out of chat.
+                var css = 'a[href="/watch"],a[href="/marketplace"],'
+                    + '[aria-label="Search Facebook"]{display:none!important;}'
+                    + 'form[role="search"]{display:none!important;}';
+                var st = document.createElement('style');
+                st.id = 'slimbook-chat';
+                st.textContent = css;
+                document.documentElement.appendChild(st);
+                function low(s, n) { return ((s || '').slice(0, n || 600)).toLowerCase(); }
+                var markers = [$markersJs];
+                function wallPresent() {
+                    var body = low(document.body && document.body.innerText, 600);
+                    var title = low(document.title, 120);
+                    for (var i = 0; i < markers.length; i++) {
+                        if (body.indexOf(markers[i]) !== -1 || title.indexOf(markers[i]) !== -1) return markers[i];
+                    }
+                    return null;
+                }
+                function chatPresent() {
+                    return !!document.querySelector('[role="grid"],[role="main"] input,'
+                        + '[aria-label*="essage"] input,[placeholder*="essage"]');
+                }
+                var hit = wallPresent();
+                if (hit && !chatPresent()) {
+                    // Try the on-page bypass: many FB interstitials hide a
+                    // web-continue path behind the CTA. English-only, like the
+                    // markers above.
+                    var clicked = null;
+                    var els = document.querySelectorAll('a,button,[role="button"]');
+                    for (var k = 0; k < els.length; k++) {
+                        var t = low(els[k].innerText || els[k].getAttribute('aria-label') || '', 80);
+                        if (/continue on web|not now|use facebook|dismiss|^close$|no thanks/.test(t)) {
+                            try { els[k].click(); clicked = t; } catch (e) {}
+                            break;
+                        }
+                    }
+                    console.log('SLIMBOOK_CHAT:WALL:' + hit + ':bypass=' + (clicked || 'none')
+                        + ':' + document.title.slice(0, 80));
+                } else {
+                    console.log('SLIMBOOK_CHAT:OK:' + document.title.slice(0, 80));
+                }
+            })();
+        """.trimIndent(), null)
+        // Re-probe after async render (wall text often arrives after
+        // onPageFinished). Log-only: no navigation, just a signal for logs.
+        view.postDelayed({
+            if (!isChatUrl(view.url)) return@postDelayed
+            view.evaluateJavascript(
+                "JSON.stringify({t: document.title, b: (document.body && document.body.innerText || '').slice(0, 500), chat: !!document.querySelector('[role=\"grid\"],[placeholder*=\"essage\"]')})",
+            ) { json ->
+                if (json == null) return@evaluateJavascript
+                val lower = json.lowercase()
+                val wall = CHAT_WALL_MARKERS.any { lower.contains(it) } &&
+                    !lower.contains("\"chat\":true")
+                Log.d("SlimBook", "CHAT_PROBE:$url wall=$wall -> $json".take(300))
+            }
+        }, 2500)
+        repairMessengerLayout(view)
+    }
+
+    /**
+     * The desktop chat grid sometimes mounts collapsed (~100px tall, overflow
+     * hidden) while its navigation pane is full-height — likely measured
+     * mid-transition during auto-nav to the last thread — so only ~1.5 rows
+     * paint and the column can't scroll. Size the collapsed wrappers to fill
+     * the pane, make the grid scrollable, then kick it with scroll/resize
+     * events so it renders rows. Chat-only, session-local; reverts itself if
+     * geometry looks insane.
+     */
+    private fun repairMessengerLayout(view: WebView) {
+        view.evaluateJavascript("""
+            (function() {
+                if (window.__sb_msgr_repairing) return;
+                function info(el) {
+                    try {
+                        var r = el.getBoundingClientRect();
+                        return el.tagName + ':' + Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.top)
+                            + ':ch=' + el.clientHeight + ':kids=' + el.children.length;
+                    } catch (e) { return 'err'; }
+                }
+                function attempt(tag) {
+                    var grid = document.querySelector('[role="grid"]');
+                    if (!grid) { console.log('SLIMBOOK_MSGR:' + tag + ':no-grid'); return false; }
+                    var gr = grid.getBoundingClientRect();
+                    var innerRows = grid.firstElementChild ? grid.firstElementChild.children.length : -1;
+                    console.log('SLIMBOOK_MSGR:' + tag + ':grid=' + info(grid) + ':innerRows=' + innerRows);
+                    if (gr.height > 200 && gr.width <= window.innerWidth * 1.2 && innerRows > 2) {
+                        console.log('SLIMBOOK_MSGR:' + tag + ':healthy');
+                        return true;
+                    }
+                    if (gr.height > 200) {
+                        // Tall but empty/narrow: kick rendering without touching layout
+                        try { grid.scrollTop = 1; } catch (e) {}
+                        window.dispatchEvent(new Event('resize'));
+                        console.log('SLIMBOOK_MSGR:' + tag + ':kicked');
+                        return true;
+                    }
+                    // Find the full-height navigation pane to compute fill height
+                    var nav = grid.closest('[role="navigation"]') || document.body;
+                    var nr = nav.getBoundingClientRect();
+                    var target = Math.round(nr.bottom - gr.top - 4);
+                    if (target < 200) { console.log('SLIMBOOK_MSGR:' + tag + ':no-room'); return false; }
+                    window.__sb_msgr_repairing = true;
+                    var touched = [];
+                    var p = grid;
+                    for (var d = 0; d < 6 && p && p !== nav; d++) {
+                        if (p.clientHeight < target - 50) {
+                            p.style.setProperty('height', target + 'px', 'important');
+                            p.style.setProperty('min-height', target + 'px', 'important');
+                            p.style.setProperty('max-width', '100%', 'important');
+                            touched.push(p);
+                        }
+                        p = p.parentElement;
+                    }
+                    grid.style.setProperty('overflow-y', 'auto', 'important');
+                    // Sanity: never let our overrides blow the layout out horizontally
+                    var gw = grid.getBoundingClientRect().width;
+                    if (gw > window.innerWidth * 1.2) {
+                        for (var k = 0; k < touched.length; k++) {
+                            touched[k].style.removeProperty('height');
+                            touched[k].style.removeProperty('min-height');
+                            touched[k].style.removeProperty('max-width');
+                        }
+                        grid.style.removeProperty('overflow-y');
+                        window.__sb_msgr_repairing = false;
+                        console.log('SLIMBOOK_MSGR:' + tag + ':blowout-reverted');
+                        return true;
+                    }
+                    try { grid.scrollTop = 1; } catch (e) {}
+                    window.dispatchEvent(new Event('resize'));
+                    setTimeout(function() {
+                        try { grid.scrollTop = 0; } catch (e) {}
+                        window.dispatchEvent(new Event('resize'));
+                        var gr2 = grid.getBoundingClientRect();
+                        var ir2 = grid.firstElementChild ? grid.firstElementChild.children.length : -1;
+                        console.log('SLIMBOOK_MSGR:repaired:grid=' + Math.round(gr2.width) + 'x' + Math.round(gr2.height)
+                            + ':innerRows=' + ir2 + ':sh=' + grid.scrollHeight);
+                        window.__sb_msgr_repairing = false;
+                    }, 1200);
+                    return true;
+                }
+                if (attempt('load')) return;
+                var tries = 0;
+                var timer = setInterval(function() {
+                    tries++;
+                    if (attempt('poll' + tries)) { clearInterval(timer); }
+                    else if (tries >= 12) { clearInterval(timer); console.log('SLIMBOOK_MSGR:giveup'); }
+                }, 1000);
+            })();
+        """.trimIndent(), null)
+    }
+
     private fun injectFilter() {
+        // Never inject feed filtering/tracking hooks into chat pages
+        // (breaks their messaging transport and layout).
+        if (isChatUrl(webView.url)) return
         if (filterJs.isNotEmpty()) {
             webView.evaluateJavascript(filterJs, null)
         }
@@ -634,9 +921,12 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Use OnBackPressedCallback")
     override fun onBackPressed() {
         val url = webView.url ?: ""
-        if (url.contains("messenger.com")) {
-            // Leave messenger - go back to feed with mobile UA
+        if (isChatUrl(url)) {
+            // Leave chat - go back to feed with mobile UA
+            isMessengerMode = false
+            messengerRedirectPending = false
             webView.settings.userAgentString = MOBILE_UA
+            applyFeedMode()
             webView.loadUrl(FB_URL)
         } else if (webView.canGoBack()) {
             webView.goBack()
