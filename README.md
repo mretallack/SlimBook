@@ -135,6 +135,24 @@ To update filter rules without releasing a new APK:
 - **Background notifications** — requires "Display over other apps" permission for the overlay WebView approach.
 - **Engagement tracking** — Facebook sends binary WebSocket frames tracking viewport/scroll. See [`docs/engagement-tracking.md`](docs/engagement-tracking.md) for analysis.
 
+
+## Release & Publishing
+
+### F-Droid / GitHub Releases
+
+SlimBook is designed to be built reproducibly by F-Droid directly from GitHub releases/tags. To release a new version:
+
+1. **Update version code/name** (if needed) in `app/build.gradle.kts`.
+2. **Commit and push** changes to `main`.
+3. **Create a GitHub Release / Tag:**
+   - Go to your repository on GitHub → **Releases** → **Draft a new release**.
+   - Create a new tag (e.g., `v1.1.0` or corresponding version tag) pointing to `main`.
+   - Write release notes detailing bug fixes and improvements.
+   - Publish the release.
+4. **F-Droid Build Automation:**
+   - F-Droid monitors GitHub tags automatically.
+   - Once the tag is published, F-Droid's build server will fetch the source, build the APK reproducibly, and make it available in the F-Droid client within 24–48 hours. No manual F-Droid metadata updates are required for standard version bumps.
+
 ## License
 
 [MIT](LICENSE)
