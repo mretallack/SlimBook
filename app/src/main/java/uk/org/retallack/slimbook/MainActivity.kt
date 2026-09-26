@@ -723,6 +723,7 @@ class MainActivity : AppCompatActivity() {
             "Post age filter ($ageLabel)",
             "Notification poll ($pollLabel)",
             "Remote filter (${if (authorDb.isRemoteFilterEnabled()) "on" else "off"})",
+            "Hide news feed (${if (authorDb.isHideFeedEnabled()) "on" else "off"})",
             "View log (${logMessages.size} entries)",
             "Dump DOM",
             "Re-run filter"
@@ -737,9 +738,10 @@ class MainActivity : AppCompatActivity() {
                     3 -> showAgeFilter()
                     4 -> showPollInterval()
                     5 -> toggleRemoteFilter()
-                    6 -> showLog()
-                    7 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
-                    8 -> injectFilter()
+                    6 -> toggleHideFeed()
+                    7 -> showLog()
+                    8 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
+                    9 -> injectFilter()
                 }
             }
             .show()
@@ -956,5 +958,12 @@ class MainActivity : AppCompatActivity() {
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
         webView.restoreState(savedInstanceState)
+    }
+
+    private fun toggleHideFeed() {
+        val newState = !authorDb.isHideFeedEnabled()
+        authorDb.setHideFeedEnabled(newState)
+        Toast.makeText(this, "Hide news feed: ${if (newState) "on" else "off"}", Toast.LENGTH_SHORT).show()
+        injectFilter()
     }
 }

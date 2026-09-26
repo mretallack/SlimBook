@@ -81,4 +81,12 @@ class AuthorDatabase(context: Context) {
     fun setRemoteFilterEnabled(enabled: Boolean) {
         settingsPrefs.edit().putBoolean("remote_filter", enabled).apply()
     }
+
+    fun isHideFeedEnabled(): Boolean {
+        return settingsPrefs.getBoolean("hide_feed", false)
+    }
+
+    fun setHideFeedEnabled(enabled: Boolean) {
+        settingsPrefs.edit().putBoolean("hide_feed", enabled).apply()
+    }
 }

@@ -142,7 +142,43 @@
     }
 
     function removeUnwanted() {
-        // Always read from window in case script was re-injected
+        // HIDE NEWS FEED (News Feed Eradicator)
+        if (typeof Android !== 'undefined' && Android.isHideFeedEnabled && Android.isHideFeedEnabled()) {
+            var path = window.location.pathname;
+            if (path === '/' || path === '/home.php' || path === '/index.php' || path === '') {
+                // Hide stories section and main feed posts by targeting data-ft or role=feed items or articles
+                var feedItems = document.querySelectorAll('[role="feed"] > div, [data-ft*="top_level_post_id"]');
+                for (var i = 0; i < feedItems.length; i++) {
+                    hide(feedItems[i], 'hidefeed');
+                }
+                // Inject or update motivational quote card if not present
+                var existingQuote = document.getElementById('slimbook-quote-card');
+                if (!existingQuote) {
+                    var quotes = [
+                        { q: "Simplicity is the ultimate sophistication.", a: "Leonardo da Vinci" },
+                        { q: "The time you enjoy wasting is not wasted time.", a: "Marthe Troly-Curtin" },
+                        { q: "Focus on being productive instead of busy.", a: "Tim Ferriss" },
+                        { q: "The secret of getting ahead is getting started.", a: "Mark Twain" },
+                        { q: "Done is better than perfect.", a: "Sheryl Sandberg" },
+                        { q: "Act as if what you do makes a difference. It does.", a: "William James" },
+                        { q: "Quality is not an act, it is a habit.", a: "Aristotle" }
+                    ];
+                    var chosen = quotes[Math.floor(Math.random() * quotes.length)];
+                    var card = document.createElement('div');
+                    card.id = 'slimbook-quote-card';
+                    card.style.cssText = 'background: #ffffff; border: 1px solid #e4e6eb; border-radius: 8px; padding: 24px; margin: 16px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.1); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; z-index: 9999; position: relative;';
+                    card.innerHTML = '<h2 style="color: #1877f2; margin-bottom: 12px; font-size: 20px;">Feed Eradicated</h2><p style="font-size: 16px; color: #050505; font-style: italic; line-height: 1.5; margin-bottom: 12px;">“' + chosen.q + '”</p><p style="font-size: 14px; color: #65676b; margin-bottom: 16px;">— ' + chosen.a + '</p><button onclick="window.location.reload();" style="background: #1877f2; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;">Refresh Quote</button>';
+                    var targetContainer = document.querySelector('[role="main"], #root, body');
+                    if (targetContainer) {
+                        targetContainer.insertBefore(card, targetContainer.firstChild);
+                    } else {
+                        document.body.appendChild(card);
+                    }
+                }
+            }
+        }
+        
+    // Always read from window in case script was re-injected
         highlightMode = window.__slimbook_highlight || false;
 
         // Only filter on the home feed
