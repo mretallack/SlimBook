@@ -437,6 +437,30 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
+    // Composer-focus reporter: hides the native stats badge while typing.
+    // Semantic (focusin/focusout) rather than IME geometry, which WebView
+    // often swallows. focusout is debounced so tabbing between inputs
+    // doesn't flicker the badge.
+    (function hookComposerFocus() {
+        if (window.__sb_composer_hooked) return;
+        window.__sb_composer_hooked = true;
+        function isEditable(el) {
+            return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+        }
+        document.addEventListener('focusin', function(e) {
+            if (isEditable(e.target) && typeof Android !== 'undefined' && Android.setComposerFocused) {
+                Android.setComposerFocused(true);
+            }
+        });
+        document.addEventListener('focusout', function() {
+            setTimeout(function() {
+                if (!isEditable(document.activeElement) && typeof Android !== 'undefined' && Android.setComposerFocused) {
+                    Android.setComposerFocused(false);
+                }
+            }, 150);
+        });
+    })();
+
     window.__slimbook_filter = removeUnwanted;
 
     window.__slimbook_dump = function() {

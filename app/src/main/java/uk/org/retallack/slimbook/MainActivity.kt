@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private var filterJs: String = ""
     private var highlightMode = false
     private var isMessengerMode = false
+    private var isComposerFocused = false
     private var messengerRedirectPending = false
     private val logMessages = mutableListOf<String>()
     private var fileUploadCallback: android.webkit.ValueCallback<Array<android.net.Uri>>? = null
@@ -144,7 +145,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyFeedMode() {
         if (::swipeRefresh.isInitialized) swipeRefresh.isEnabled = true
-        if (::statsBadge.isInitialized) statsBadge.visibility = View.VISIBLE
+        if (::statsBadge.isInitialized) {
+            updateBadgeVisibility()
+        }
         if (::webView.isInitialized) {
             webView.settings.useWideViewPort = false
             webView.settings.loadWithOverviewMode = false
@@ -242,10 +245,16 @@ class MainActivity : AppCompatActivity() {
         }
         webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
 
-        webView.addJavascriptInterface(SlimBookBridge(authorDb) { count ->
-            // Only cache, don't post notification from foreground
-            Log.d("SlimBook", "Notification count from page: $count")
-        }, "Android")
+        webView.addJavascriptInterface(SlimBookBridge(
+            authorDb,
+            onNotifCount = { count ->
+                // Only cache, don't post notification from foreground
+                Log.d("SlimBook", "Notification count from page: $count")
+            },
+            onComposerFocused = { focused ->
+                runOnUiThread { setComposerFocused(focused) }
+            },
+        ), "Android")
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
@@ -438,6 +447,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Semantic hide: the page reports comment/chat composer focus via
+     * SlimBookBridge.setComposerFocused (focusin/focusout on
+     * input/textarea/contenteditable). More reliable than IME geometry,
+     * which WebView often swallows before it reaches our window.
+     */
+    private fun setComposerFocused(focused: Boolean) {
+        if (focused == isComposerFocused) return
+        isComposerFocused = focused
+        Log.d("SlimBook", "COMPOSER focused=$focused")
+        updateBadgeVisibility()
+    }
+
+    private fun updateBadgeVisibility() {
+        if (!::statsBadge.isInitialized) return
+        statsBadge.visibility = when {
+            isComposerFocused -> View.GONE
+            isMessengerMode -> View.GONE
+            else -> View.VISIBLE
+        }
+    }
+
     private fun loadFilter() {
         CoroutineScope(Dispatchers.IO).launch {
             filterJs = filterManager.getFilterJs()
@@ -624,6 +655,31 @@ class MainActivity : AppCompatActivity() {
         if (filterJs.isNotEmpty()) {
             webView.evaluateJavascript(filterJs, null)
         }
+        // Composer-focus reporter: drives badge auto-hide semantically.
+        // Separate from filter.js so it also applies when a remote filter
+        // is cached. focusout is debounced: moving between two inputs
+        // fires focusout+focusin back-to-back and must not flicker.
+        webView.evaluateJavascript("""
+            (function() {
+                if (window.__sb_composer_hooked) return;
+                window.__sb_composer_hooked = true;
+                function isEditable(el) {
+                    return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+                }
+                document.addEventListener('focusin', function(e) {
+                    if (isEditable(e.target) && typeof Android !== 'undefined' && Android.setComposerFocused) {
+                        Android.setComposerFocused(true);
+                    }
+                });
+                document.addEventListener('focusout', function() {
+                    setTimeout(function() {
+                        if (!isEditable(document.activeElement) && typeof Android !== 'undefined' && Android.setComposerFocused) {
+                            Android.setComposerFocused(false);
+                        }
+                    }, 150);
+                });
+            })();
+        """.trimIndent(), null)
         // Inject tracking logger to intercept WebSocket, sendBeacon, and XHR
         webView.evaluateJavascript("""
             (function() {
