@@ -54,7 +54,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## Debug
 
-Long-press the stats badge (bottom-right corner) to access:
+Long-press the stats badge (bottom-right corner, auto-hides while typing) to access:
 
 - **Highlight mode** — shows filtered elements with red borders and reason labels (AD, PAGE, GROUP, OLD, STORIES, etc.)
 - **Manage authors** — list of all detected post authors, uncheck to block
