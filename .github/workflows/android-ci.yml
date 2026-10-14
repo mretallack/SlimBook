@@ -88,13 +88,15 @@ jobs:
       with:
         name: test-reports
         path: app/build/reports/tests/testDebugUnitTest/
-        
+        if-no-files-found: ignore
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: app/build/test-results/testDebugUnitTest/
+        if-no-files-found: ignore
 
   release:
     if: github.event_name == 'release'
