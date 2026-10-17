@@ -54,6 +54,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var statsBadge: TextView
+    private lateinit var messengerButton: View
+    private lateinit var messengerBadge: TextView
     private lateinit var filterManager: FilterManager
     private lateinit var authorDb: AuthorDatabase
 
@@ -95,6 +97,8 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webView)
         swipeRefresh = findViewById(R.id.swipeRefresh)
         statsBadge = findViewById(R.id.statsBadge)
+        messengerButton = findViewById(R.id.messengerButton)
+        messengerBadge = findViewById(R.id.messengerBadge)
         filterManager = FilterManager(this)
         authorDb = AuthorDatabase(this)
 
@@ -102,6 +106,7 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         setupSwipeRefresh()
         setupStatsBadge()
+        setupMessengerButton()
         requestNotificationPermission()
         NotificationService.createChannel(this)
         createImageSaveChannel()
@@ -178,7 +183,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun applyMessengerMode() {
         if (::swipeRefresh.isInitialized) swipeRefresh.isEnabled = false
-        if (::statsBadge.isInitialized) statsBadge.visibility = View.GONE
+        updateBadgeVisibility() // hides badge + Messenger button in chat
         if (::webView.isInitialized) {
             webView.settings.useWideViewPort = true
             webView.settings.loadWithOverviewMode = true
@@ -265,6 +270,9 @@ class MainActivity : AppCompatActivity() {
             authorDb,
             onComposerFocused = { focused ->
                 runOnUiThread { setComposerFocused(focused) }
+            },
+            onMessageCount = { count ->
+                runOnUiThread { updateMessengerBadge(count) }
             },
             onNotifCount = { count ->
                 // Only cache, don't post notification from foreground
@@ -427,6 +435,7 @@ class MainActivity : AppCompatActivity() {
                 swipeRefresh.isRefreshing = false
                 injectFilter()
                 injectSaveClickHook()
+                injectUnreadWatch()
             }
         }
 
@@ -723,6 +732,14 @@ class MainActivity : AppCompatActivity() {
             isMessengerMode -> View.GONE
             else -> View.VISIBLE
         }
+        if (::messengerButton.isInitialized) {
+            messengerButton.visibility = when {
+                !authorDb.isMessengerButtonEnabled() -> View.GONE
+                isComposerFocused -> View.GONE
+                isMessengerMode -> View.GONE
+                else -> View.VISIBLE
+            }
+        }
     }
 
     private fun setupSwipeRefresh() {
@@ -735,6 +752,47 @@ class MainActivity : AppCompatActivity() {
             showDebugMenu()
             true
         }
+    }
+
+    /**
+     * Issue #14: persistent Messenger shortcut. The web "Messenger" icon only
+     * exists in the header at the very top of the feed, so reaching it from a
+     * long feed or a comment thread meant scrolling all the way up. This
+     * native button is always on screen in feed mode and uses the same
+     * desktop-UA redirect as the in-page Messages tab. It is draggable and can
+     * be hidden from the debug menu.
+     */
+    private fun setupMessengerButton() {
+        messengerButton.visibility =
+            if (authorDb.isMessengerButtonEnabled()) View.VISIBLE else View.GONE
+        messengerButton.setOnClickListener { redirectToMessenger(webView) }
+        DragHelper.attach(messengerButton, authorDb.getOverlayOffset("messenger")) { dx, dy ->
+            authorDb.setOverlayOffset("messenger", dx, dy)
+        }
+    }
+
+    private fun updateMessengerBadge(count: Int) {
+        if (!::messengerBadge.isInitialized) return
+        if (count <= 0) {
+            messengerBadge.visibility = View.GONE
+        } else {
+            messengerBadge.text = if (count > 99) "99+" else count.toString()
+            messengerBadge.visibility = View.VISIBLE
+        }
+    }
+
+    private val unreadWatchJs: String by lazy {
+        try {
+            assets.open("unread_watch.js").bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            Log.e("SlimBook", "unread_watch.js missing", e)
+            ""
+        }
+    }
+
+    /** Reports the unread Messenger count to the native button's badge. */
+    private fun injectUnreadWatch() {
+        if (unreadWatchJs.isNotEmpty()) webView.evaluateJavascript(unreadWatchJs, null)
     }
 
     private fun loadFilter() {
@@ -1056,7 +1114,10 @@ class MainActivity : AppCompatActivity() {
             "Remote filter (${if (authorDb.isRemoteFilterEnabled()) "on" else "off"})",
             "View log (${logMessages.size} entries)",
             "Dump DOM",
-            "Re-run filter"
+            "Re-run filter",
+            if (authorDb.isMessengerButtonEnabled()) "Hide Messenger button" else "Show Messenger button",
+            "Reset Messenger button position",
+            if (authorDb.isLiveMessageCheckEnabled()) "Live message check: on" else "Live message check: off"
         )
         AlertDialog.Builder(this)
             .setTitle("SlimBook Debug")
@@ -1071,6 +1132,15 @@ class MainActivity : AppCompatActivity() {
                     6 -> showLog()
                     7 -> webView.evaluateJavascript("window.__slimbook_dump()", null)
                     8 -> injectFilter()
+                    9 -> {
+                        authorDb.setMessengerButtonEnabled(!authorDb.isMessengerButtonEnabled())
+                        updateBadgeVisibility()
+                    }
+                    10 -> {
+                        authorDb.resetOverlayOffsets()
+                        DragHelper.reset(messengerButton)
+                    }
+                    11 -> authorDb.setLiveMessageCheckEnabled(!authorDb.isLiveMessageCheckEnabled())
                 }
             }
             .show()

@@ -81,4 +81,43 @@ class AuthorDatabase(context: Context) {
     fun setRemoteFilterEnabled(enabled: Boolean) {
         settingsPrefs.edit().putBoolean("remote_filter", enabled).apply()
     }
+
+    // Floating overlay positions (stats badge / Messenger button), stored as
+    // translation in px relative to the default layout position.
+    fun getOverlayOffset(name: String): Pair<Float, Float>? {
+        if (!settingsPrefs.contains("overlay_${name}_dx")) return null
+        return settingsPrefs.getFloat("overlay_${name}_dx", 0f) to
+            settingsPrefs.getFloat("overlay_${name}_dy", 0f)
+    }
+
+    fun setOverlayOffset(name: String, dx: Float, dy: Float) {
+        settingsPrefs.edit()
+            .putFloat("overlay_${name}_dx", dx)
+            .putFloat("overlay_${name}_dy", dy)
+            .apply()
+    }
+
+    fun resetOverlayOffsets() {
+        settingsPrefs.edit().apply {
+            for (n in listOf("messenger")) {
+                remove("overlay_${n}_dx"); remove("overlay_${n}_dy")
+            }
+        }.apply()
+    }
+
+    fun isMessengerButtonEnabled(): Boolean {
+        return settingsPrefs.getBoolean("messenger_button", true)
+    }
+
+    fun setMessengerButtonEnabled(enabled: Boolean) {
+        settingsPrefs.edit().putBoolean("messenger_button", enabled).apply()
+    }
+
+    fun isLiveMessageCheckEnabled(): Boolean {
+        return settingsPrefs.getBoolean("live_message_check", true)
+    }
+
+    fun setLiveMessageCheckEnabled(enabled: Boolean) {
+        settingsPrefs.edit().putBoolean("live_message_check", enabled).apply()
+    }
 }
