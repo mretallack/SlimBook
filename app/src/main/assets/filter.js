@@ -160,7 +160,10 @@
             var el = els[i];
             if (el.closest('[data-filtered]')) continue;
             var text = el.textContent || '';
-            var trimmed = text.trim();
+            // WebLite appends private-use icon-font glyphs to labels, e.g. the
+            // "Sponsored" label's textContent is actually "Sponsored" + U+F078B/U+F17E1.
+            // Strip those so exact-match comparisons below still work.
+            var trimmed = text.replace(/[\uE000-\uF8FF]|[\u{F0000}-\u{FFFFD}]|[\u{100000}-\u{10FFFD}]/gu, '').trim();
             var h = el.getBoundingClientRect().height;
 
             // ADS: short element containing "Ad" (not "Add", not "Ads Manager")
