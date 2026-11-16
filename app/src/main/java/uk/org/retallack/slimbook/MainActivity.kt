@@ -17,6 +17,8 @@ import android.view.View
 import android.webkit.*
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -58,6 +60,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var authorDb: AuthorDatabase
 
     private var filterJs: String = ""
+    private var layoutFixJs: String = ""
     private var highlightMode = false
     private var isMessengerMode = false
     private var isComposerFocused = false
@@ -98,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         filterManager = FilterManager(this)
         authorDb = AuthorDatabase(this)
 
+        setupKeyboardWatcher()
         setupCookies()
         setupWebView()
         setupSwipeRefresh()
@@ -111,7 +115,10 @@ class MainActivity : AppCompatActivity() {
         scheduleNotificationWorker()
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
-            CoroutineScope(Dispatchers.IO).launch { filterJs = filterManager.getFilterJs() }
+            CoroutineScope(Dispatchers.IO).launch {
+                filterJs = filterManager.getFilterJs()
+                layoutFixJs = loadLayoutFixJs()
+            }
         } else {
             loadFilter()
         }
@@ -284,6 +291,9 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                // A new page has no focused field; a blur lost during the
+                // navigation must not leave the overlay hidden.
+                setComposerFocused(false)
                 // Don't touch chat pages: they are WebSocket-heavy and replacing
                 // WebSocket.prototype breaks their transport (issue #2 cut-off).
                 if (isChatUrl(url)) return
@@ -737,9 +747,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadLayoutFixJs(): String = try {
+        assets.open("layout_fix.js").bufferedReader().use { it.readText() }
+    } catch (e: Exception) {
+        Log.e("SlimBook", "layout_fix.js missing", e)
+        ""
+    }
+
+    /**
+     * The overlays (stats badge) are hidden while a comment field is focused.
+     * The page reports focus changes, but pressing Back hides the keyboard
+     * without blurring the field, so no "blur" ever arrives and the overlay
+     * stayed hidden. The keyboard going away means nothing is being typed any
+     * more, so reset the flag then. Insets are passed on unchanged.
+     */
+    private fun setupKeyboardWatcher() {
+        var imeWasVisible = false
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById<View>(android.R.id.content)) { v, insets ->
+            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            if (imeWasVisible && !imeVisible) setComposerFocused(false)
+            imeWasVisible = imeVisible
+            ViewCompat.onApplyWindowInsets(v, insets)
+        }
+    }
+
     private fun loadFilter() {
         CoroutineScope(Dispatchers.IO).launch {
             filterJs = filterManager.getFilterJs()
+            layoutFixJs = loadLayoutFixJs()
             withContext(Dispatchers.Main) {
                 webView.loadUrl(FB_URL)
             }
@@ -922,6 +957,11 @@ class MainActivity : AppCompatActivity() {
         if (isChatUrl(webView.url)) return
         if (filterJs.isNotEmpty()) {
             webView.evaluateJavascript(filterJs, null)
+        }
+        // Issue #9: stop comment reaction chips overlapping the next comment
+        // / "Show previous replies" row.
+        if (layoutFixJs.isNotEmpty()) {
+            webView.evaluateJavascript(layoutFixJs, null)
         }
         webView.evaluateJavascript("""
             (function() {
@@ -1277,6 +1317,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         webView.onResume()
         webView.resumeTimers()
+        setComposerFocused(false)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
