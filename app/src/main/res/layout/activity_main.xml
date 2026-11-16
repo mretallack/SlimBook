@@ -30,4 +30,49 @@
         android:visibility="gone"
         android:text="🛡 0" />
 
+    <!-- Persistent Messenger shortcut (issue #14): always reachable, no need
+         to scroll back to the top of the feed. Draggable, can be hidden from
+         the debug menu. The group is the touch target; the badge shows the
+         unread message count. -->
+    <FrameLayout
+        android:id="@+id/messengerButton"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="132dp"
+        android:clickable="true"
+        android:contentDescription="Open Messenger"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_messenger_button"
+            android:clickable="false"
+            android:elevation="6dp"
+            android:importantForAccessibility="no"
+            android:padding="10dp"
+            android:src="@drawable/ic_messenger" />
+
+        <TextView
+            android:id="@+id/messengerBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:background="@drawable/bg_badge_red"
+            android:elevation="8dp"
+            android:gravity="center"
+            android:minWidth="18dp"
+            android:minHeight="18dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </FrameLayout>
+
 </FrameLayout>
