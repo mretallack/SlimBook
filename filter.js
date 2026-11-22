@@ -3,6 +3,221 @@
 (function() {
     var highlightMode = window.__slimbook_highlight || false;
 
+    // ------------------------------------------------------------------
+    // LOCALISED LABELS
+    //
+    // Facebook renders its UI in the account's language, so every label the
+    // filter keys on needs listing per language. Matching is exact, but
+    // case-, accent- and punctuation-insensitive (see norm()), so "Takip Et",
+    // "Takip et" and "· Takip Et" are one entry.
+    //
+    // To add or fix a language: turn on Highlight mode, find what is not
+    // being caught, and add the exact text Facebook shows to the right
+    // category below. Unknown categories can simply be left out.
+    //
+    //   ad       - the "Sponsored" marker on ads
+    //   story    - the "Create story" tile (anchors the stories row)
+    //   join     - "Join" button on posts from groups you are not in
+    //   follow   - "Follow" button on posts from pages you do not follow
+    //   friend   - "Add friend" button on posts from non-friends
+    //   suggest  - headings of suggestion blocks
+    //   interest - the "Are you interested in this post?" prompt
+    //   app      - the "Open app" banner
+    // ------------------------------------------------------------------
+    var LABELS = {
+        en: { ad: ['Sponsored', 'Ad'], story: ['Create story'], join: ['Join'], follow: ['Follow'],
+              friend: ['Add friend'], suggest: ['People you may know', 'Suggested for you'],
+              interest: ['Are you interested in this post?'], app: ['Open app'] },
+        tr: { ad: ['Sponsorlu', 'Reklam'], story: ['Hikaye oluştur', 'Hikayeni oluştur'],
+              join: ['Katıl', 'Gruba katıl'], follow: ['Takip et'],
+              friend: ['Arkadaş ekle', 'Arkadaşı ekle', 'Arkadaşlık isteği gönder'],
+              suggest: ['Tanıyor olabileceğin kişiler', 'Senin için önerilenler', 'Sana önerilenler', 'Sizin için önerilenler'],
+              interest: ['Bu gönderi ilgini çekiyor mu?', 'Bu gönderiyle ilgileniyor musun?'],
+              app: ['Uygulamayı aç', 'Uygulamada aç', 'Facebook uygulamasını aç'] },
+        de: { ad: ['Gesponsert', 'Anzeige'], story: ['Story erstellen'], join: ['Beitreten'],
+              follow: ['Folgen', 'Abonnieren'],
+              friend: ['Freund/in hinzufügen', 'Als Freund/in hinzufügen', 'Freund hinzufügen'],
+              suggest: ['Personen, die du kennen könntest', 'Personen, die du vielleicht kennst', 'Vorschläge für dich', 'Für dich vorgeschlagen'],
+              app: ['App öffnen'] },
+        fr: { ad: ['Sponsorisé', 'Publicité'], story: ['Créer une story'], join: ['Rejoindre', 'Rejoindre le groupe'],
+              follow: ['Suivre', "S'abonner"],
+              friend: ['Ajouter un(e) ami(e)', 'Ajouter en ami', 'Ajouter un ami'],
+              suggest: ['Vous connaissez peut-être', 'Personnes que vous pourriez connaître', 'Suggestions pour vous', 'Suggéré pour vous'],
+              app: ["Ouvrir l'application", "Ouvrir l'app"] },
+        es: { ad: ['Publicidad', 'Patrocinado'], story: ['Crear historia', 'Crear una historia'],
+              join: ['Unirte', 'Unirme', 'Unirse', 'Unirte al grupo'], follow: ['Seguir'],
+              friend: ['Agregar a amigos', 'Añadir a amigos', 'Agregar amigo', 'Añadir amigo'],
+              suggest: ['Personas que quizá conozcas', 'Personas que quizás conozcas', 'Sugerencias para ti', 'Sugerido para ti'],
+              app: ['Abrir app', 'Abrir aplicación', 'Abrir la app'] },
+        pt: { ad: ['Patrocinado', 'Anúncio'], story: ['Criar story', 'Criar história'],
+              join: ['Participar', 'Aderir', 'Participar do grupo', 'Aderir ao grupo'], follow: ['Seguir'],
+              friend: ['Adicionar amigo', 'Adicionar aos amigos', 'Adicionar amigo(a)'],
+              suggest: ['Pessoas que você talvez conheça', 'Pessoas que talvez conheças', 'Sugestões para você', 'Sugestões para ti', 'Sugerido para você'],
+              app: ['Abrir app', 'Abrir aplicativo', 'Abrir aplicação'] },
+        it: { ad: ['Sponsorizzato', 'Sponsorizzata', 'Inserzione'], story: ['Crea storia', 'Crea una storia'],
+              join: ['Iscriviti', 'Unisciti', 'Iscriviti al gruppo'], follow: ['Segui'],
+              friend: ['Aggiungi agli amici', 'Aggiungi amico'],
+              suggest: ['Persone che potresti conoscere', 'Suggeriti per te', 'Consigliati per te'],
+              app: ["Apri l'app", 'Apri app'] },
+        nl: { ad: ['Gesponsord', 'Advertentie'], story: ['Verhaal maken'], join: ['Lid worden', 'Deelnemen'],
+              follow: ['Volgen'], friend: ['Vriend toevoegen', 'Toevoegen als vriend'],
+              suggest: ['Mensen die je misschien kent', 'Voorgesteld voor jou', 'Suggesties voor jou'],
+              app: ['App openen'] },
+        pl: { ad: ['Sponsorowane', 'Reklama'], story: ['Utwórz relację'], join: ['Dołącz', 'Dołącz do grupy'],
+              follow: ['Obserwuj'], friend: ['Dodaj znajomego', 'Dodaj do znajomych'],
+              suggest: ['Osoby, które możesz znać', 'Proponowane dla Ciebie', 'Sugerowane dla Ciebie'],
+              app: ['Otwórz aplikację'] },
+        ru: { ad: ['Реклама'], story: ['Создать историю'], join: ['Вступить', 'Присоединиться', 'Вступить в группу'],
+              follow: ['Подписаться'], friend: ['Добавить в друзья', 'Добавить друга'],
+              suggest: ['Вы можете их знать', 'Люди, которых вы можете знать', 'Рекомендации для вас', 'Рекомендуемое для вас'],
+              app: ['Открыть приложение'] },
+        uk: { ad: ['Реклама', 'Спонсоровано'], story: ['Створити історію'], join: ['Приєднатися'],
+              follow: ['Стежити', 'Підписатися'], friend: ['Додати до друзів', 'Додати друга'],
+              suggest: ['Люди, яких ви можете знати', 'Рекомендовано для вас'],
+              app: ['Відкрити додаток', 'Відкрити застосунок'] },
+        bg: { ad: ['Спонсорирано', 'Реклама'], join: ['Присъединяване'], follow: ['Следване', 'Последване'],
+              friend: ['Добавяне на приятел'], suggest: ['Хора, които може би познавате'] },
+        cs: { ad: ['Sponzorováno', 'Reklama'], story: ['Vytvořit příběh'], join: ['Přidat se'],
+              follow: ['Sledovat'], friend: ['Přidat přítele', 'Přidat do přátel'],
+              suggest: ['Koho možná znáte', 'Lidé, které možná znáte', 'Navrhované pro vás'],
+              app: ['Otevřít aplikaci'] },
+        sk: { ad: ['Sponzorované', 'Reklama'], join: ['Pridať sa'], follow: ['Sledovať'],
+              friend: ['Pridať priateľa'], app: ['Otvoriť aplikáciu'] },
+        hr: { ad: ['Sponzorirano', 'Oglas'], join: ['Pridruži se'], follow: ['Prati', 'Zaprati'],
+              friend: ['Dodaj prijatelja'], suggest: ['Osobe koje možda poznaješ', 'Osobe koje možda poznajete'] },
+        sr: { ad: ['Спонзорисано', 'Sponzorisano', 'Оглас'], join: ['Придружи се'], follow: ['Прати', 'Запрати'],
+              friend: ['Додај пријатеља'], suggest: ['Особе које можда познајете'] },
+        ro: { ad: ['Sponsorizat', 'Reclamă'], story: ['Creează o poveste', 'Creează poveste'],
+              join: ['Înscrie-te', 'Alătură-te'], follow: ['Urmărește'],
+              friend: ['Adaugă prieten', 'Adaugă ca prieten'],
+              suggest: ['Persoane pe care s-ar putea să le cunoști', 'Sugestii pentru tine'],
+              app: ['Deschide aplicația'] },
+        hu: { ad: ['Hirdetés', 'Szponzorált'], story: ['Történet létrehozása'], join: ['Csatlakozás'],
+              follow: ['Követés'], friend: ['Ismerősnek jelölés'],
+              suggest: ['Ismerhetsz embereket', 'Emberek, akiket ismerhetsz', 'Neked javasolt'],
+              app: ['Alkalmazás megnyitása'] },
+        el: { ad: ['Χορηγούμενη', 'Χορηγούμενο', 'Διαφήμιση'], story: ['Δημιουργία ιστορίας'],
+              join: ['Συμμετοχή', 'Γίνετε μέλος'], follow: ['Ακολουθήστε', 'Ακολούθηση'],
+              friend: ['Προσθήκη φίλου'], suggest: ['Άτομα που ίσως γνωρίζετε', 'Προτείνεται για εσάς'],
+              app: ['Άνοιγμα εφαρμογής'] },
+        sv: { ad: ['Sponsrad', 'Annons'], story: ['Skapa händelse'], join: ['Gå med'], follow: ['Följ'],
+              friend: ['Lägg till vän', 'Lägg till som vän'],
+              suggest: ['Personer du kanske känner', 'Föreslås för dig', 'Förslag för dig'],
+              app: ['Öppna appen'] },
+        da: { ad: ['Sponsoreret', 'Annonce'], story: ['Opret historie'], join: ['Bliv medlem', 'Deltag'],
+              follow: ['Følg'], friend: ['Tilføj ven'],
+              suggest: ['Personer, du måske kender', 'Foreslået til dig'], app: ['Åbn app', 'Åbn appen'] },
+        nb: { ad: ['Sponset', 'Annonse'], story: ['Opprett historie', 'Lag historie'], join: ['Bli med', 'Bli medlem'],
+              follow: ['Følg'], friend: ['Legg til venn'],
+              suggest: ['Personer du kanskje kjenner', 'Foreslått for deg'], app: ['Åpne appen'] },
+        fi: { ad: ['Sponsoroitu', 'Mainos'], story: ['Luo tarina'], join: ['Liity', 'Liity ryhmään'],
+              follow: ['Seuraa'], friend: ['Lisää kaveri', 'Lisää kaveriksi'],
+              suggest: ['Ihmisiä, jotka saatat tuntea', 'Sinulle ehdotettua'], app: ['Avaa sovellus'] },
+        ar: { ad: ['ممول', 'إعلان'], story: ['إنشاء قصة'], join: ['انضمام', 'انضمام إلى المجموعة'],
+              follow: ['متابعة'], friend: ['إضافة صديق'],
+              suggest: ['أشخاص قد تعرفهم', 'مقترح لك', 'مقترحة لك'], app: ['فتح التطبيق'] },
+        he: { ad: ['ממומן', 'מודעה'], story: ['יצירת סטורי'], join: ['הצטרף', 'הצטרפי', 'הצטרפות'],
+              follow: ['עקוב', 'עקבי', 'מעקב'], friend: ['הוספת חבר', 'הוסף חבר/ה', 'הוסף לחברים'],
+              suggest: ['אנשים שאולי אתה מכיר', 'אנשים שאולי את/ה מכיר/ה', 'הצעות בשבילך'],
+              app: ['פתח אפליקציה', 'פתיחת האפליקציה'] },
+        fa: { ad: ['دارای پشتیبانی مالی', 'تبلیغ', 'تبلیغات'], join: ['پیوستن'], follow: ['دنبال کردن'],
+              friend: ['افزودن دوست'], suggest: ['افرادی که شاید بشناسید'] },
+        hi: { ad: ['प्रायोजित', 'विज्ञापन'], story: ['स्टोरी बनाएं'], join: ['जुड़ें', 'शामिल हों'],
+              follow: ['फ़ॉलो करें'], friend: ['मित्र जोड़ें', 'फ़्रेंड जोड़ें', 'मित्र बनाएं'],
+              suggest: ['वे लोग जिन्हें आप शायद जानते हों', 'आपके लिए सुझाव'], app: ['ऐप खोलें'] },
+        bn: { ad: ['স্পনসর্ড', 'স্পনসর করা'], join: ['যোগ দিন'], follow: ['ফলো করুন'], friend: ['বন্ধু যোগ করুন'] },
+        id: { ad: ['Bersponsor', 'Disponsori', 'Iklan'], story: ['Buat cerita'],
+              join: ['Gabung', 'Bergabung', 'Gabung ke grup'], follow: ['Ikuti'],
+              friend: ['Tambah teman', 'Tambahkan teman'],
+              suggest: ['Orang yang mungkin Anda kenal', 'Disarankan untuk Anda', 'Saran untuk Anda'],
+              app: ['Buka aplikasi'] },
+        ms: { ad: ['Ditaja', 'Iklan'], join: ['Sertai'], follow: ['Ikuti'], friend: ['Tambah rakan'],
+              suggest: ['Orang yang mungkin anda kenali', 'Dicadangkan untuk anda'], app: ['Buka aplikasi'] },
+        vi: { ad: ['Được tài trợ', 'Quảng cáo'], story: ['Tạo tin'], join: ['Tham gia', 'Tham gia nhóm'],
+              follow: ['Theo dõi'], friend: ['Thêm bạn bè', 'Thêm bạn', 'Kết bạn'],
+              suggest: ['Những người bạn có thể biết', 'Gợi ý cho bạn'], app: ['Mở ứng dụng'] },
+        th: { ad: ['ได้รับการสนับสนุน', 'โฆษณา'], story: ['สร้างสตอรี่'], join: ['เข้าร่วม', 'เข้าร่วมกลุ่ม'],
+              follow: ['ติดตาม'], friend: ['เพิ่มเพื่อน', 'เพิ่มเป็นเพื่อน'],
+              suggest: ['คนที่คุณอาจรู้จัก', 'แนะนำสำหรับคุณ'], app: ['เปิดแอพ', 'เปิดแอป'] },
+        ja: { ad: ['広告', 'スポンサー'], story: ['ストーリーズを作成'], join: ['参加する', 'グループに参加'],
+              follow: ['フォロー', 'フォローする'], friend: ['友達になる', '友達を追加'],
+              suggest: ['知り合いかも', 'あなたへのおすすめ'], app: ['アプリを開く'] },
+        ko: { ad: ['광고', '스폰서'], story: ['스토리 만들기'], join: ['가입하기', '그룹 가입'],
+              follow: ['팔로우'], friend: ['친구 추가'],
+              suggest: ['알 수도 있는 사람', '회원님을 위한 추천'], app: ['앱 열기'] },
+        zh: { ad: ['赞助内容', '赞助', '贊助', '广告', '廣告'], story: ['创建快拍', '建立限時動態'],
+              join: ['加入小组', '加入社團', '加入'], follow: ['关注', '追蹤'],
+              friend: ['加为好友', '加為好友', '加朋友', '添加好友'],
+              suggest: ['你可能认识的人', '你可能認識的人', '你可能認識的朋友', '为你推荐', '為你推薦'],
+              app: ['打开应用', '開啟應用程式'] }
+    };
+
+    // WebLite appends private-use icon-font glyphs to labels, e.g. the
+    // "Sponsored" label's textContent is actually "Sponsored" + U+F078B/U+F17E1.
+    var PUA = /[\uE000-\uF8FF]|[\u{F0000}-\u{FFFFD}]|[\u{100000}-\u{10FFFD}]/gu;
+
+    // Fold a label to a comparable form: no icon glyphs, lower case, no
+    // accents/diacritics, straight apostrophes, single spaces, and no
+    // leading/trailing "·" separators. Turkish needs two extra steps:
+    // "İ" lowercases to "i" + U+0307 (removed with the other marks) and the
+    // dotless "ı" has no decomposition, so it is mapped to "i" by hand.
+    function norm(s) {
+        return (s || '').replace(PUA, '').toLowerCase().normalize('NFD')
+            .replace(/\p{M}/gu, '').replace(/\u0131/g, 'i')
+            .replace(/[\u2018\u2019\u02BC]/g, "'").replace(/\s+/g, ' ')
+            .replace(/^[\s\u00B7\u2022]+|[\s\u00B7\u2022]+$/g, '');
+    }
+
+    // normalised label -> category, across every language. The page language
+    // is deliberately not used to narrow this: the matches are exact, so
+    // cross-language collisions are not a practical concern, and it keeps
+    // working if Facebook mislabels the page language or mixes languages.
+    var TERMS = {};
+    var AD_LONG = [];
+    (function buildTerms() {
+        for (var lang in LABELS) {
+            for (var cat in LABELS[lang]) {
+                var list = LABELS[lang][cat];
+                for (var i = 0; i < list.length; i++) {
+                    var n = norm(list[i]);
+                    if (!n || TERMS[n]) continue;
+                    TERMS[n] = cat;
+                    // Only distinctive ad words are safe to look for *inside* a longer aria-label
+                    if (cat === 'ad' && n.length >= 7) AD_LONG.push(n.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+                }
+            }
+        }
+    })();
+    var AD_IN_LABEL = new RegExp('(?<![\\p{L}\\p{N}])(?:' + AD_LONG.join('|') + ')(?![\\p{L}\\p{N}])', 'u');
+    // English "Ad" as a whole word ("Ad", "Ad · Shop now") but not Adam, Adnan, Add, Ads
+    var AD_WORD = /(?<![\p{L}\p{N}])Ad(?![\p{L}\p{N}])/u;
+
+    function pageLang() {
+        var l = (document.documentElement && document.documentElement.lang) || '';
+        return l.toLowerCase().split(/[-_]/)[0];
+    }
+
+    // Which kind of marker is this piece of label text, if any?
+    function classify(text) {
+        var stripped = (text || '').replace(PUA, '').trim();
+        if (!stripped || stripped.length > 80) return null;
+        var n = norm(stripped);
+        if (TERMS[n]) return TERMS[n];
+        // "Sponsored · Paid for by X"
+        if (n.length < 60 && n.indexOf('\u00B7') !== -1) {
+            var parts = n.split('\u00B7');
+            for (var i = 0; i < parts.length; i++) {
+                if (TERMS[parts[i].trim()] === 'ad') return 'ad';
+            }
+        }
+        // Loose English rule, kept from before multi-language support. Only
+        // on English (or unlabelled) pages: "Ad" is an ordinary word
+        // elsewhere, e.g. "name" in Turkish.
+        var lang = pageLang();
+        if ((!lang || lang === 'en') && stripped.length < 20 && AD_WORD.test(stripped)) return 'ad';
+        return null;
+    }
+
     function hide(el, type) {
         if (!el || el.getAttribute('data-filtered')) return;
         // Log what's being filtered
@@ -160,23 +375,21 @@
             var el = els[i];
             if (el.closest('[data-filtered]')) continue;
             var text = el.textContent || '';
-            // WebLite appends private-use icon-font glyphs to labels, e.g. the
-            // "Sponsored" label's textContent is actually "Sponsored" + U+F078B/U+F17E1.
-            // Strip those so exact-match comparisons below still work.
-            var trimmed = text.replace(/[\uE000-\uF8FF]|[\u{F0000}-\u{FFFFD}]|[\u{100000}-\u{10FFFD}]/gu, '').trim();
-            var h = el.getBoundingClientRect().height;
+            // No marker label is anywhere near this long; skip post bodies cheaply
+            if (text.length > 120) continue;
+            // Strip icon-font glyphs so the comparisons below still work.
+            var trimmed = text.replace(PUA, '').trim();
+            var kind = classify(text);
 
-            // ADS: short element containing "Ad" (not "Add", not "Ads Manager")
-            if (trimmed === 'Ad' || trimmed === 'Sponsored' ||
-                (trimmed.indexOf('Ad') !== -1 && trimmed.length < 20 &&
-                 trimmed.indexOf('Add') === -1 && trimmed.indexOf('Ads') === -1)) {
+            // ADS: the "Sponsored" marker, in any supported language
+            if (kind === 'ad') {
                 var container = findContainer(el, 200, 1500);
                 if (container) hide(container, 'ad');
                 continue;
             }
 
             // STORIES
-            if (trimmed === 'Create story') {
+            if (kind === 'story') {
                 var p = el;
                 var found = false;
                 for (var k = 0; k < 15; k++) {
@@ -211,7 +424,7 @@
             }
 
             // GROUP SUGGESTIONS / posts from unjoined groups
-            if (trimmed === 'Join') {
+            if (kind === 'join') {
                 var container = findContainer(el, 200, 4000);
                 if (container) {
                     var elTop = el.getBoundingClientRect().top;
@@ -225,7 +438,7 @@
             }
 
             // PAGE SUGGESTIONS / posts from unfollowed pages
-            if (trimmed === 'Follow' || trimmed === '· Follow' || trimmed === 'Follow ·') {
+            if (kind === 'follow') {
                 var container = findContainer(el, 200, 4000);
                 if (container) {
                     var elTop = el.getBoundingClientRect().top;
@@ -238,7 +451,7 @@
             }
 
             // NON-FRIENDS: posts from people you're not friends with
-            if (trimmed === 'Add friend') {
+            if (kind === 'friend') {
                 var container = findContainer(el, 200, 4000);
                 if (container) {
                     var elTop = el.getBoundingClientRect().top;
@@ -251,22 +464,21 @@
             }
 
             // SUGGESTIONS
-            var lower = trimmed.toLowerCase();
-            if (lower === 'people you may know' || lower === 'suggested for you') {
+            if (kind === 'suggest') {
                 var container = findContainer(el, 200, 1500);
                 if (container) hide(container, 'suggestion');
                 continue;
             }
 
             // INTEREST PROMPTS
-            if (trimmed === 'Are you interested in this post?') {
+            if (kind === 'interest') {
                 var container = findContainer(el, 50, 300);
                 if (container) hide(container, 'interest');
                 continue;
             }
 
             // OPEN APP BANNER
-            if (trimmed === 'Open app') {
+            if (kind === 'app') {
                 var container = findContainer(el, 30, 200);
                 if (container) hide(container, 'banner');
                 continue;
@@ -274,12 +486,14 @@
         }
 
         // Also scan by aria-label which WebLite uses
-        var labeled = document.querySelectorAll('[aria-label*="Sponsored"], [aria-label*="Join group"], [aria-label*="Follow"]');
+        var labeled = document.querySelectorAll('[aria-label]');
         for (var i = 0; i < labeled.length; i++) {
             var el = labeled[i];
-            if (el.closest('[data-filtered]')) continue;
             var label = el.getAttribute('aria-label') || '';
-            if (label.indexOf('Sponsored') !== -1) {
+            if (!label || label.length > 120) continue;
+            var nLabel = norm(label);
+            if (TERMS[nLabel] === 'ad' || AD_IN_LABEL.test(nLabel)) {
+                if (el.closest('[data-filtered]')) continue;
                 var container = findContainer(el, 200, 1500);
                 if (container) hide(container, 'ad');
             }
@@ -394,6 +608,23 @@
         return stats;
     }
 
+    // For not-yet-revealed content (no layout, so no geometry to go on): look
+    // at the label elements that start within the first 100 characters and
+    // report the first ad / unfollowed / unjoined / non-friend marker.
+    var HEADER_KINDS = { ad: 'ad', follow: 'page', join: 'group', friend: 'nonfriend' };
+    function headerKind(el) {
+        var leaves = el.querySelectorAll('[data-mcomponent="TextArea"], [data-mcomponent="ServerTextArea"]');
+        if (leaves.length === 0) leaves = el.querySelectorAll('a, span[role="link"], [role="button"]');
+        var seen = 0;
+        for (var i = 0; i < leaves.length && i < 20 && seen < 100; i++) {
+            var t = leaves[i].textContent || '';
+            var type = HEADER_KINDS[classify(t)];
+            if (type) return type;
+            seen += t.length;
+        }
+        return null;
+    }
+
     // Pre-filter hidden content so it never flashes when revealed
     function preFilter() {
         var hidden = document.querySelectorAll('[style*="display: none"], [style*="display:none"]');
@@ -402,15 +633,22 @@
             if (el.getAttribute('data-filtered') || el.innerHTML.length < 50) continue;
             var text = el.textContent || '';
             // Check for Follow/Join/Add friend in header-like position (first 200 chars)
-            var headerText = text.substring(0, 200);
+            var headerText = text.replace(PUA, '').substring(0, 200);
             if (headerText.indexOf('Follow') !== -1 && headerText.indexOf('Follow') < 100) {
                 hide(el, 'page');
             } else if (headerText.indexOf('Join') !== -1 && headerText.indexOf('Join') < 100) {
                 hide(el, 'group');
             } else if (headerText.indexOf('Add friend') !== -1 && headerText.indexOf('Add friend') < 100) {
                 hide(el, 'nonfriend');
-            } else if (headerText.indexOf('Sponsored') !== -1 || headerText.indexOf('Ad') !== -1 && headerText.length < 80) {
+            } else if (headerText.indexOf('Sponsored') !== -1 || AD_WORD.test(headerText) && headerText.length < 80) {
                 hide(el, 'ad');
+            } else {
+                // Other languages: the substring checks above are too loose to
+                // repeat for every language ("Folgen", "Seguir", "Katıl" are
+                // ordinary words), so match whole label elements in the
+                // header instead.
+                var kind = headerKind(el);
+                if (kind) hide(el, kind);
             }
             // Age filter: look for timestamps in the text
             if (typeof Android !== 'undefined' && Android.getMaxAgeHours) {
