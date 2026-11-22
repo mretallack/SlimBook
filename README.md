@@ -20,6 +20,7 @@ The filter runs continuously via a MutationObserver, catching new content as it 
 ## Features
 
 - 🛡️ Real-time content filtering with stats badge
+- 🌍 Works with Facebook in 35 languages (see [Languages](#languages))
 - 🚫 Removes ads, sponsored posts, stories, reels
 - 👥 Removes posts from unfollowed pages and unjoined groups
 - 🙈 Removes "People You May Know" and "Are you interested?" prompts
@@ -95,6 +96,22 @@ Facebook serves a lightweight mobile web client called **WebLite** at `web.faceb
 - Renders posts as flat HTML elements
 
 SlimBook injects a small JavaScript filter after each page load. The filter identifies unwanted content by text patterns ("Ad", "Join", "Follow", "Create story", etc.) and hides the parent container elements.
+
+## Languages
+
+Facebook shows its interface in your account's language, so the filter keeps a table of the labels it looks for ("Sponsored", "Join", "Follow", "Add friend", …) in each language. The table is `LABELS` at the top of [`filter.js`](filter.js) and currently covers:
+
+Arabic, Bengali, Bulgarian, Chinese (Simplified and Traditional), Croatian, Czech, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Hungarian, Indonesian, Italian, Japanese, Korean, Malay, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Spanish, Swedish, Thai, Turkish, Ukrainian and Vietnamese.
+
+Only English has been checked against a live feed. The other languages were written from Facebook's known translations and have **not** been verified on WebLite, so some labels may be wrong or missing. Matching ignores case, accents and surrounding "·" separators, so only the wording has to be right.
+
+**If something is not filtered in your language:**
+
+1. Long-press the stats badge → turn on **Highlight mode** to see what is and is not being caught.
+2. Note the exact text Facebook shows on the item that got through (for example the word under the page name on an ad).
+3. Add it to the matching category for your language in `LABELS` — or open an issue with the text and the language.
+
+The post age filter still only understands English timestamps ("3h", "2d", "5 Jun"); in other languages it leaves posts alone.
 
 ## Remote filter updates
 
